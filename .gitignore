@@ -44,4 +44,4 @@ selenium-manager/
 drivers/
 
 # Credenciais (exemplo está ok, mas cuidado com dados reais)
-# .env 
+.env 
