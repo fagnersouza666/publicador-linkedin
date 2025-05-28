@@ -7,6 +7,8 @@ Automatizador de publicações no LinkedIn usando Python e Selenium.
 
 O projeto está funcionando **perfeitamente na execução local**. Para Docker, foram identificadas limitações técnicas fundamentais com navegadores em containers.
 
+> **Atenção:** O arquivo `.env` **NUNCA** deve ser enviado para o GitHub. Ele está protegido pelo `.gitignore` e deve conter apenas suas credenciais locais.
+
 ### Teste de Diagnóstico Realizado
 - ✅ **Local**: Todos os navegadores funcionam, Selenium executa sem problemas
 - ❌ **Docker**: Firefox e Chromium falham ao executar, mesmo com drivers corretos
@@ -125,6 +127,15 @@ Testa o navegador sem fazer login real no LinkedIn.
 - **Solução**: Use apenas execução local
 
 ## 🚀 Enviando para GitHub
+
+### Nunca envie o arquivo `.env` para o repositório!
+- O arquivo `.env` está protegido pelo `.gitignore`.
+- Se por engano for enviado, remova com:
+  ```bash
+  git rm --cached .env
+  git commit -m "Removendo .env do repositório remoto"
+  git push
+  ```
 
 ### Opção 1: Via Interface Web
 1. Crie repositório em [github.com/new](https://github.com/new)
