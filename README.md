@@ -124,25 +124,6 @@ Testa o navegador sem fazer login real no LinkedIn.
 - **Motivo**: Limitações técnicas de navegadores em containers
 - **Solução**: Use apenas execução local
 
-## 🚀 Enviando para GitHub
-
-### Opção 1: Via Interface Web
-1. Crie repositório em [github.com/new](https://github.com/new)
-   - Nome: `publicador-linkedin`
-   - Público, sem README
-2. No terminal deste projeto:
-   ```bash
-   git remote add origin https://github.com/SEU_USERNAME/publicador-linkedin.git
-   git branch -M main
-   git push -u origin main
-   ```
-
-### Opção 2: Via GitHub CLI
-```bash
-gh auth login  # autenticar primeiro
-gh repo create publicador-linkedin --public --push
-```
-
 ## Versão Atual
 1.4.0 - Confirmação técnica das limitações Docker
 
