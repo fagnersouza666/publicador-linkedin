@@ -8,6 +8,8 @@ Automatizador de publicações no LinkedIn usando Python e Selenium.
 O projeto está funcionando **perfeitamente na execução local**. Para Docker, foram identificadas limitações técnicas fundamentais com navegadores em containers.
 
 > **Atenção:** O arquivo `.env` **NUNCA** deve ser enviado para o GitHub. Ele está protegido pelo `.gitignore` e deve conter apenas suas credenciais locais.
+> 
+> **Dica:** Use o arquivo `.env.example` como modelo seguro. Renomeie para `.env` e preencha com seus dados reais.
 
 ### Teste de Diagnóstico Realizado
 - ✅ **Local**: Todos os navegadores funcionam, Selenium executa sem problemas
@@ -45,12 +47,18 @@ Testa o navegador sem fazer login real no LinkedIn.
    ```
 
 3. **Configure o arquivo `.env` com suas credenciais REAIS:**
-   ```
-   LINKEDIN_EMAIL=seu_email_real@exemplo.com
-   LINKEDIN_PASSWORD=sua_senha_real
-   POST_TEXT=Texto que será publicado
-   BROWSER=firefox  # ou chromium
-   ```
+   - Use o arquivo `.env.example` como base:
+     ```bash
+     cp .env.example .env
+     # Edite o .env com seus dados
+     ```
+   - Exemplo de conteúdo:
+     ```env
+     LINKEDIN_EMAIL=seu_email@exemplo.com
+     LINKEDIN_PASSWORD=sua_senha_super_secreta
+     POST_TEXT=Texto que será publicado automaticamente no LinkedIn.
+     BROWSER=firefox  # ou chromium
+     ```
 
 4. **Execute o publicador:**
    ```bash
