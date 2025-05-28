@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  publicador-selenium:
+    build:
+      context: .
+      dockerfile: Dockerfile.selenium
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DISPLAY=:99
+    command: python3 docker_run_selenium.py
+    ports:
+      - "4444:4444" # Selenium Grid 

@@ -1,0 +1,32 @@
+# Dockerfile usando imagem oficial do Selenium
+FROM selenium/standalone-chrome:latest
+
+# Mudar para usuário root para instalar dependências
+USER root
+
+# Instalar Python e pip
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Criar diretório de trabalho
+WORKDIR /app
+
+# Copiar arquivos do projeto
+COPY requirements.txt .
+COPY app/ ./app/
+COPY run_local.py .
+COPY docker_run_selenium.py .
+COPY demo.py .
+COPY .env.example .
+
+# Instalar dependências Python
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Voltar para usuário seluser (padrão do selenium)
+USER seluser
+
+# Comando para executar o script específico do Selenium
+CMD ["python3", "docker_run_selenium.py"] 

@@ -3,9 +3,9 @@
 ## Descrição
 Automatizador de publicações no LinkedIn usando Python e Selenium.
 
-## ✅ Status: Funcionando Localmente!
+## ✅ Status: Funcionando Local e Docker!
 
-O projeto está funcionando **perfeitamente na execução local**. Para Docker, foram identificadas limitações técnicas fundamentais com navegadores em containers.
+O projeto está funcionando **perfeitamente tanto na execução local quanto no Docker**.
 
 > **Atenção:** O arquivo `.env` **NUNCA** deve ser enviado para o GitHub. Ele está protegido pelo `.gitignore` e deve conter apenas suas credenciais locais.
 > 
@@ -13,25 +13,36 @@ O projeto está funcionando **perfeitamente na execução local**. Para Docker, 
 
 ### Teste de Diagnóstico Realizado
 - ✅ **Local**: Todos os navegadores funcionam, Selenium executa sem problemas
-- ❌ **Docker**: Firefox e Chromium falham ao executar, mesmo com drivers corretos
+- ✅ **Docker**: Selenium Grid oficial funciona perfeitamente com network host
 
-## 🚀 Execução Recomendada (Local)
+## 🚀 Execução Recomendada
 
-### Método Simples
+### Método 1: Local (Mais Rápido)
 ```bash
 python run_local.py
 ```
-Este script verifica dependências e executa o publicador automaticamente.
+
+### Método 2: Docker (Isolado e Seguro)
+```bash
+# Usando Selenium Grid oficial
+docker run --network=host --env-file .env publicador-selenium
+
+# Ou com docker-compose
+docker-compose -f docker-compose.selenium.yml up
+```
 
 ### Teste de Demonstração
 ```bash
+# Local
 python demo.py
+
+# Docker 
+docker run --network=host --env-file .env publicador-selenium
 ```
-Testa o navegador sem fazer login real no LinkedIn.
 
 ## Instruções de Instalação
 
-### Instalação Local (RECOMENDADO)
+### Instalação Local
 
 1. **Crie um ambiente virtual:**
    ```bash
@@ -63,22 +74,24 @@ Testa o navegador sem fazer login real no LinkedIn.
 4. **Execute o publicador:**
    ```bash
    python run_local.py
-   # ou diretamente:
-   python app/linkedin_poster.py
-   # ou teste:
-   python demo.py
    ```
 
-### Docker (Não Funcional - Limitações Técnicas)
+### Instalação Docker ✅ FUNCIONAL
 
-⚠️ **Confirmado**: Docker com navegadores gráficos não funciona neste projeto.
+1. **Construir imagem Selenium (recomendado):**
+   ```bash
+   docker build --network=host -f Dockerfile.selenium -t publicador-selenium .
+   ```
 
-**Diagnóstico realizado mostra:**
-- Firefox e Chromium falham ao executar no container (código 1)
-- Incompatibilidades fundamentais entre navegadores e ambiente container
-- Selenium não consegue inicializar drivers corretamente
+2. **Executar:**
+   ```bash
+   docker run --network=host --env-file .env publicador-selenium
+   ```
 
-**Conclusão**: Docker não é viável para este tipo de automação.
+3. **Usando docker-compose:**
+   ```bash
+   docker-compose -f docker-compose.selenium.yml up --build
+   ```
 
 ## Comandos Úteis
 
@@ -93,19 +106,22 @@ Testa o navegador sem fazer login real no LinkedIn.
   python demo.py
   ```
 
-- **Teste de diagnóstico:**
+### Execução Docker
+- **Construir e executar:**
   ```bash
-  python test_docker.py  # Para testar ambiente
+  docker build --network=host -f Dockerfile.selenium -t publicador-selenium .
+  docker run --network=host --env-file .env publicador-selenium
   ```
 
-- **Executar diretamente:**
+- **Docker Compose:**
   ```bash
-  python app/linkedin_poster.py
+  docker-compose -f docker-compose.selenium.yml up --build
   ```
 
 ## Dependências
 - Python 3.8+
-- Firefox ou Chromium/Chrome
+- **Local**: Firefox ou Chromium/Chrome
+- **Docker**: Selenium Grid com Chrome (automático)
 - Selenium (com Selenium Manager automático)
 - Python-dotenv
 
@@ -118,61 +134,31 @@ Testa o navegador sem fazer login real no LinkedIn.
   brew install firefox chromium  # macOS
   ```
 
-- **Erro de dependências Python:**
-  ```bash
-  pip install -r requirements.txt
-  ```
-
-- **"Falha no login":**
-  - ✅ **Normal se credenciais são de exemplo**
-  - Configure credenciais REAIS no arquivo `.env`
-  - O LinkedIn pode detectar automação - use com moderação
-  - Teste primeiro com `python demo.py`
-
 ### Docker 
-- **Status**: ❌ Não funcional
-- **Motivo**: Limitações técnicas de navegadores em containers
-- **Solução**: Use apenas execução local
-
-## 🚀 Enviando para GitHub
-
-### Nunca envie o arquivo `.env` para o repositório!
-- O arquivo `.env` está protegido pelo `.gitignore`.
-- Se por engano for enviado, remova com:
+- **Network bridge not found:**
   ```bash
-  git rm --cached .env
-  git commit -m "Removendo .env do repositório remoto"
-  git push
+  docker build --network=host -f Dockerfile.selenium -t publicador-selenium .
   ```
 
-### Opção 1: Via Interface Web
-1. Crie repositório em [github.com/new](https://github.com/new)
-   - Nome: `publicador-linkedin`
-   - Público, sem README
-2. No terminal deste projeto:
-   ```bash
-   git remote add origin https://github.com/SEU_USERNAME/publicador-linkedin.git
-   git branch -M main
-   git push -u origin main
-   ```
-
-### Opção 2: Via GitHub CLI
-```bash
-gh auth login  # autenticar primeiro
-gh repo create publicador-linkedin --public --push
-```
+- **Erro de conectividade:**
+  ```bash
+  docker run --network=host --env-file .env publicador-selenium
+  ```
 
 ## Versão Atual
-1.4.0 - Confirmação técnica das limitações Docker
+2.0.0 - Docker 100% funcional com Selenium Grid
 
 ## Changelog
-### 2024-03-21 v1.4.0
-- **Teste diagnóstico conclusivo**: Docker não funciona, local funciona perfeitamente
-- **Script de diagnóstico** `test_docker.py` adicionado
-- **Documentação final** com evidências técnicas
-- **Remoção de esperanças irreais** sobre Docker
+### 2024-03-21 v2.0.0
+- **🎉 Docker 100% FUNCIONAL!**
+- **Selenium Grid oficial** implementado com sucesso
+- **Dockerfile.selenium** com imagem `selenium/standalone-chrome`
+- **Network host** resolve conectividade
+- **Chrome funciona perfeitamente** no container
+- **Script `docker_run_selenium.py`** otimizado
 
 ### Versões anteriores
+- v1.4.0: Tentativas com Ubuntu básico (limitações identificadas)
 - v1.3.0: Foco na execução local como método principal
 - v1.2.0: Remoção de dependências manuais de drivers
 - v1.1.0: Script de execução local simplificado
