@@ -45,14 +45,14 @@ temp/
 *.jpg
 *.jpeg
 
-# Documentação que não precisa no container
+# Documentação (não precisa no container)
 README.md
 CHANGELOG.md
+DOCKER_IMPROVEMENTS.md
 *.md
 
-# Scripts locais
+# Scripts locais apenas
 debug_local.py
-run_local.py
 
 # Docker files (não precisam dentro do container)
 Dockerfile*

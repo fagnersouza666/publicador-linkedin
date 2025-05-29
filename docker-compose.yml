@@ -1,14 +1,75 @@
 version: '3.8'
 
 services:
-  publicador:
-    image: publicador
-    network_mode: "host"
-    volumes:
-      - .:/app
-    env_file:
-      - .env
+  publicador-linkedin:
+    build:
+      context: .
+      dockerfile: Dockerfile.selenium
+      labels:
+        - "maintainer=publicador-linkedin"
+        - "description=Automatizador LinkedIn otimizado"
+    image: publicador-linkedin:latest
+    container_name: linkedin-publisher
+
+    # Configurações de segurança
+    user: "${UID:-1000}:${GID:-1000}" # Usar UID/GID do host
+    read_only: true # Sistema de arquivos somente leitura
+    cap_drop:
+      - ALL # Remover todas as capabilities
+    cap_add:
+      - CHOWN # Apenas as necessárias
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+
+    # Configurações de recursos
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+    # Volumes temporários (tmpfs para performance)
+    tmpfs:
+      - /tmp:rw,size=100M
+      - /home/seluser/tmp:rw,size=50M
+      - /home/seluser/.cache:rw,size=50M
+
+    # Variáveis de ambiente
     environment:
       - PYTHONUNBUFFERED=1
-      - DISPLAY=:99
-    command: python3 docker_run.py
+      - PYTHONDONTWRITEBYTECODE=1
+      - DEBUG_MODE=false
+
+    # Health check
+    healthcheck:
+      test: [ "CMD", "python3", "-c", "import selenium; print('OK')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Configurações de rede
+    networks:
+      - publicador-net
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Logs configurados
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  publicador-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

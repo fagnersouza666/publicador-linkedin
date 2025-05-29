@@ -1,6 +1,6 @@
 # 🚀 Publicador LinkedIn Automático
 
-**Versão 2.1.2** - Automatizador para publicação de posts no LinkedIn usando Selenium WebDriver.
+**Versão 2.1.4** - Automatizador para publicação de posts no LinkedIn usando Selenium WebDriver.
 
 ## 📝 Descrição do Projeto
 
@@ -97,7 +97,7 @@ cp .env.example .env
 # Execução normal
 python app/linkedin_poster.py
 
-# Execução debug
+# Execução debug (modo visual)
 python debug_local.py
 ```
 
@@ -233,17 +233,40 @@ O que vocês acham? #automacao #networking #reflexao
 
 ## 🔧 Versão Atual
 
-**v2.1.2** - Publicador com documentação completa e estrutura profissional
+**v2.1.4** - Publicador simplificado e otimizado
 
-### Performance v2.1.2:
+### Performance v2.1.4:
 - **Execução Docker**: ~4 minutos (estável e confiável)
 - **Execução Local**: ~1 minuto (otimizada)
 - **Taxa de sucesso**: 95%+ (seletores robustos)
 - **Compatibilidade**: Multi-idioma global
 - **Build Docker**: 30% mais rápido (.dockerignore)
 - **Instalação**: 100% confiável (versões pinadas)
+- **Estrutura**: Simplificada, apenas arquivos essenciais
 
----
+## 🐳 Opções Docker
+
+### Execução Padrão (Recomendado)
+```bash
+# Build e execução simplificados
+./iniciar.sh               # Modo normal
+./iniciar_debug.sh         # Modo debug
+
+# Ou usando docker-compose
+docker-compose up
+```
+
+### Docker Compose
+```bash
+# Execução com configurações otimizadas
+docker-compose up
+
+# Em background
+docker-compose up -d
+
+# Com rebuild
+docker-compose up --build
+```
 
 ## 🚨 Avisos Importantes
 

@@ -1,32 +1,56 @@
-# Dockerfile usando imagem oficial do Selenium
+# Dockerfile usando imagem oficial do Selenium (otimizado)
 FROM selenium/standalone-chrome:latest
 
-# Mudar para usuário root para instalar dependências
+# Metadados da imagem
+LABEL maintainer="publicador-linkedin"
+LABEL description="Automatizador LinkedIn com Selenium Grid"
+LABEL version="2.1.2"
+
+# Mudar para usuário root temporariamente para instalar dependências
 USER root
 
-# Instalar Python e pip
+# Instalar Python e dependências mínimas
 RUN apt-get update && apt-get install -y \
-    python3 \
+    python3-minimal \
     python3-pip \
     python3-venv \
-    && rm -rf /var/lib/apt/lists/*
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get autoremove -y \
+    && apt-get autoclean
 
-# Criar diretório de trabalho
+# Criar diretório de trabalho com permissões corretas
 WORKDIR /app
+RUN chown -R seluser:seluser /app
 
-# Copiar arquivos do projeto
-COPY requirements.txt .
-COPY app/ ./app/
-COPY run_local.py .
-COPY docker_run_selenium.py .
-COPY demo.py .
-COPY .env.example .
+# Copiar requirements primeiro para cache do Docker
+COPY --chown=seluser:seluser requirements.txt .
 
-# Instalar dependências Python
-RUN pip3 install --no-cache-dir -r requirements.txt
-
-# Voltar para usuário seluser (padrão do selenium)
+# Mudar para usuário seluser para instalação de dependências Python
 USER seluser
 
-# Comando para executar o script principal com debug
-CMD ["python3", "-m", "app.linkedin_poster"] 
+# Criar ambiente virtual e instalar dependências Python (cache otimizado)
+RUN python3 -m venv /home/seluser/venv \
+    && . /home/seluser/venv/bin/activate \
+    && pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copiar código da aplicação
+COPY --chown=seluser:seluser app/ ./app/
+COPY --chown=seluser:seluser docker_run_selenium.py .
+COPY --chown=seluser:seluser .env.example .
+
+# Configurar ambiente
+ENV PATH="/home/seluser/venv/bin:$PATH"
+ENV PYTHONPATH="/app"
+ENV PYTHONUNBUFFERED=1
+
+# Criar diretórios temporários com permissões corretas
+RUN mkdir -p /home/seluser/tmp /home/seluser/.cache /home/seluser/screenshots
+
+# Health check para monitoramento
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python3 -c "import selenium; print('Selenium OK')" || exit 1
+
+# Comando para executar o script principal (usuário não-root)
+CMD ["python3", "docker_run_selenium.py"] 

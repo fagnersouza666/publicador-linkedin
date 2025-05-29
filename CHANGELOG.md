@@ -2,6 +2,73 @@
 
 Todas as mudanças importantes do projeto serão documentadas neste arquivo.
 
+## [2.1.4] - 2024-01-15
+
+### 🧹 Limpeza e Simplificação
+- **Arquivos removidos** - Eliminados duplicatas e arquivos desnecessários
+- **Estrutura simplificada** - Mantidos apenas arquivos essenciais
+- **Docker unificado** - Um Dockerfile e um docker-compose apenas
+
+### 📁 Arquivos Removidos:
+- `Dockerfile` (antigo, não usado)
+- `Dockerfile.optimized` (experimental, complexo demais)
+- `docker-compose.yml` (básico)
+- `docker-compose.selenium.yml` (duplicata)
+- `docker_run.py` (script antigo)
+- `demo.py` (apenas teste)
+- `build-optimized.sh` (vazio)
+- `rebuild_debug.sh` (desnecessário)
+- `DOCKER_IMPROVEMENTS.md` (documentação excessiva)
+- `run_local.py` (wrapper desnecessário, funcionalidade duplicada)
+
+### 📁 Arquivos Mantidos (Essenciais):
+- `Dockerfile.selenium` - Dockerfile principal otimizado
+- `docker-compose.yml` - Docker Compose com segurança (ex-optimized)
+- `docker_run_selenium.py` - Script Docker funcional
+- `app/linkedin_poster.py` - Script principal da aplicação
+- `iniciar.sh` / `iniciar_debug.sh` - Scripts principais Docker
+- `debug_local.py` - Script debug local (modo visual)
+- `README.md` / `CHANGELOG.md` - Documentação essencial
+
+### 🎯 Resultado da Limpeza:
+- **Arquivos reduzidos**: 25+ → 14 arquivos essenciais
+- **Complexidade reduzida**: Sem duplicatas ou experimentais
+- **Manutenção simplificada**: Foco nos arquivos que realmente funcionam
+- **Documentação enxuta**: Apenas o necessário
+- **Scripts simplificados**: Execução direta sem wrappers desnecessários
+
+## [2.1.3] - 2024-01-15
+
+### 🐳 Docker Otimizado
+- **Dockerfile.selenium melhorado** - Usuário não-root, cache otimizado, health checks
+- **Dockerfile.optimized criado** - Multi-stage build, escolha de navegador via ARG
+- **docker-compose.optimized.yml** - Configurações de segurança e performance
+- **build-optimized.sh** - Script automatizado para diferentes cenários
+- **DOCKER_IMPROVEMENTS.md** - Documentação completa das otimizações
+
+### 🔐 Segurança Docker Aprimorada
+- **Usuário não-root** - Execução com `seluser` no Selenium, `worker` no otimizado
+- **Capabilities mínimas** - Apenas CHOWN, SETGID, SETUID necessárias
+- **Sistema de arquivos read-only** - Proteção contra modificações
+- **Health checks** - Monitoramento automático de saúde do container
+
+### ⚡ Performance Docker
+- **Cache de pip otimizado** - Ambiente virtual dedicado, melhor aproveitamento de layers
+- **Limpeza automática** - `apt-get autoremove && autoclean`
+- **Dependências mínimas** - `python3-minimal`, `--no-install-recommends`
+- **tmpfs volumes** - Cache e temporários na RAM para performance
+
+### 🏗️ Múltiplas Opções Docker
+- **Dockerfile.selenium** - Padrão, testado, funcional (2.1GB)
+- **Dockerfile.optimized** - Multi-stage, escolha de navegador (~400MB estimado)
+- **docker-compose.optimized.yml** - Produção com segurança e resource limits
+
+### 📊 Resultados Docker
+- **Redução potencial**: 911MB → 400MB (multi-stage)
+- **Segurança**: Usuário não-root + capabilities mínimas
+- **Flexibilidade**: ARG BROWSER para Firefox ou Chromium
+- **Monitoramento**: Health checks automáticos
+
 ## [2.1.2] - 2024-01-15
 
 ### 📚 Documentação Aprimorada

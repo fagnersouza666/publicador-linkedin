@@ -353,7 +353,7 @@ if __name__ == "__main__":
 
         if EMAIL and PWD and EMAIL != "seu_email@exemplo.com":
             login(driver)
-            publish_post(driver, TEXT)
+            # publish_post(driver, TEXT)
         else:
             log("⚠️ Credenciais não configuradas - executando apenas teste")
             driver.get("https://www.linkedin.com")
