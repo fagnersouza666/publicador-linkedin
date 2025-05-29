@@ -52,5 +52,5 @@ RUN mkdir -p /home/seluser/tmp /home/seluser/.cache /home/seluser/screenshots
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python3 -c "import selenium; print('Selenium OK')" || exit 1
 
-# Comando para executar o script principal (usuário não-root)
-CMD ["python3", "docker_run_selenium.py"] 
+# Executar script principal
+CMD ["python3", "app/linkedin_poster.py"] 

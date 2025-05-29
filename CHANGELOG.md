@@ -1,8 +1,48 @@
-# Changelog - Publicador LinkedIn
+# 📋 CHANGELOG - Publicador LinkedIn
 
-Todas as mudanças importantes do projeto serão documentadas neste arquivo.
+Registro detalhado de todas as mudanças significativas no projeto.
 
-## [2.1.4] - 2024-01-15
+---
+
+## [2.2.0] - 2024-12-20 15:30:00
+
+### 🔄 UNIFICAÇÃO MAJOR - Código Principal Simplificado
+
+**Alterações Críticas:**
+- **SUBSTITUÍDO**: `linkedin_poster.py` pelo código unificado do `docker_run_selenium.py`
+- **REMOVIDO**: `docker_run_selenium.py` (desnecessário após unificação)
+- **ATUALIZADO**: Dockerfile.selenium agora usa `app/linkedin_poster.py`
+- **SIMPLIFICADO**: `debug_local.py` para integração direta
+
+**Benefícios da Unificação:**
+- ✅ **Zero duplicação**: Um único arquivo principal
+- ✅ **Detecção automática**: Docker vs Local
+- ✅ **Configuração unificada**: Mesma lógica para ambos ambientes
+- ✅ **Manutenção simplificada**: Updates em um só lugar
+- ✅ **Compatibilidade total**: Firefox e Chrome local + Docker
+
+**Mudanças Técnicas:**
+```python
+# Novo sistema de detecção automática
+DOCKER_MODE = os.path.exists("/.dockerenv") or os.getenv("DOCKER_MODE")
+
+# Configuração unificada do navegador
+def get_driver():
+    if DOCKER_MODE:
+        # Configuração Docker Selenium Grid
+    else:
+        # Configuração local Firefox/Chrome
+```
+
+**Arquivos Afetados:**
+- `app/linkedin_poster.py` - **REESCRITO** com código unificado
+- `debug_local.py` - **SIMPLIFICADO** para importação direta
+- `Dockerfile.selenium` - **ATUALIZADO** CMD
+- `docker_run_selenium.py` - **REMOVIDO**
+
+---
+
+## [2.1.4] - 2024-12-20 10:15:00
 
 ### 🧹 Limpeza e Simplificação
 - **Arquivos removidos** - Eliminados duplicatas e arquivos desnecessários
