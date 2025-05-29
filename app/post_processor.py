@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
-Processador de Posts com GPT-4o-mini
-Extrai, melhora e corrige textos de arquivos HTML para publicação no LinkedIn
+Post Processor - Processamento inteligente com GPT-4o-mini
+Responsável apenas pelo processamento de IA, usando html_parser para extração
 """
 import os
 import re
 import asyncio
 from datetime import datetime
 from typing import Optional, Dict
-from pathlib import Path
 
 from dotenv import load_dotenv
 import openai
-from bs4 import BeautifulSoup
+
+# Importar nosso parser HTML
+from .html_parser import HTMLParser, parse_html_file
 
 # Carregar configurações
 load_dotenv()
@@ -28,50 +29,28 @@ class PostProcessor:
         self.model = "gpt-4o-mini"
         self.max_tokens = 2000
         self.temperature = 0.7
+        self.html_parser = HTMLParser()
 
-    def extract_text_from_html(self, file_path: str) -> str:
-        """Extrair texto limpo de arquivo HTML"""
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                html_content = f.read()
+    def create_optimization_prompt(self, content: str, metadata: Dict = None) -> str:
+        """Criar prompt otimizado para GPT-4o-mini com contexto"""
 
-            # Parse com BeautifulSoup
-            soup = BeautifulSoup(html_content, "html.parser")
+        # Contexto adicional baseado nos metadados
+        context_info = ""
+        if metadata:
+            if metadata.get("title"):
+                context_info += f"\nTítulo original: {metadata['title']}"
+            if metadata.get("description"):
+                context_info += f"\nDescrição: {metadata['description'][:200]}"
+            if metadata.get("keywords"):
+                context_info += (
+                    f"\nPalavras-chave: {', '.join(metadata['keywords'][:5])}"
+                )
 
-            # Remover scripts e styles
-            for element in soup(["script", "style", "nav", "footer", "header"]):
-                element.decompose()
-
-            # Extrair texto principal
-            # Priorizar content areas comuns
-            main_content = (
-                soup.find("main")
-                or soup.find("article")
-                or soup.find("div", class_=re.compile(r"content|post|article"))
-                or soup.find("body")
-            )
-
-            if main_content:
-                text = main_content.get_text()
-            else:
-                text = soup.get_text()
-
-            # Limpar texto
-            text = re.sub(r"\s+", " ", text)  # Múltiplos espaços
-            text = re.sub(r"\n+", "\n", text)  # Múltiplas quebras
-            text = text.strip()
-
-            return text
-
-        except Exception as e:
-            raise Exception(f"Erro ao extrair texto do HTML: {e}")
-
-    def create_optimization_prompt(self, content: str) -> str:
-        """Criar prompt otimizado para GPT-4o-mini"""
         return f"""
 Você é um especialista em marketing de conteúdo e criação de posts profissionais para LinkedIn.
 
 TAREFA: Transforme o texto abaixo em um post LinkedIn envolvente e profissional.
+{context_info}
 
 DIRETRIZES:
 1. **Tom**: Profissional mas acessível
@@ -80,7 +59,7 @@ DIRETRIZES:
 4. **Hashtags**: 3-5 hashtags relevantes no final
 5. **Emojis**: Usar com moderação 
 6. **Correção**: Corrigir gramática e ortografia
-7. **Fluidez: Deixar o texto fluído fácil de ler
+7. **Fluidez**: Deixar o texto fluído e fácil de ler
 8. **Engajamento**: Fazer pergunta ou convite à discussão
 
 TEXTO ORIGINAL:
@@ -89,7 +68,7 @@ TEXTO ORIGINAL:
 RESPOSTA: (apenas o post otimizado, sem explicações)
 """
 
-    async def process_with_gpt(self, content: str) -> str:
+    async def process_with_gpt(self, content: str, metadata: Dict = None) -> str:
         """Processar conteúdo com GPT-4o-mini"""
         try:
             client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -103,7 +82,7 @@ RESPOSTA: (apenas o post otimizado, sem explicações)
                     },
                     {
                         "role": "user",
-                        "content": self.create_optimization_prompt(content),
+                        "content": self.create_optimization_prompt(content, metadata),
                     },
                 ],
                 max_tokens=self.max_tokens,
@@ -114,7 +93,7 @@ RESPOSTA: (apenas o post otimizado, sem explicações)
 
             processed_text = response.choices[0].message.content.strip()
 
-            # Validar tamanho (LinkedIn limit = 1300 chars)
+            # Validar tamanho (LinkedIn limit atualizado para 1300 chars)
             if len(processed_text) > 1300:
                 processed_text = self.truncate_post(processed_text)
 
@@ -182,14 +161,14 @@ RESPOSTA: (apenas o post otimizado, sem explicações)
     async def process_html_file(self, file_path: str) -> Optional[str]:
         """Processar arquivo HTML completo"""
         try:
-            # 1. Extrair texto do HTML
-            original_text = self.extract_text_from_html(file_path)
+            # 1. Extrair texto e metadados usando html_parser
+            text, metadata = parse_html_file(file_path)
 
-            if not original_text or len(original_text.strip()) < 20:
+            if not text or len(text.strip()) < 20:
                 raise Exception("Texto extraído muito curto ou vazio")
 
             # 2. Processar com GPT
-            processed_content = await self.process_with_gpt(original_text)
+            processed_content = await self.process_with_gpt(text, metadata)
 
             if not processed_content:
                 raise Exception("GPT retornou conteúdo vazio")
@@ -198,7 +177,9 @@ RESPOSTA: (apenas o post otimizado, sem explicações)
             validation = self.validate_content(processed_content)
 
             # 4. Log do processamento
-            self.log_processing(file_path, original_text, processed_content, validation)
+            self.log_processing(
+                file_path, text, processed_content, validation, metadata
+            )
 
             return processed_content
 
@@ -208,16 +189,23 @@ RESPOSTA: (apenas o post otimizado, sem explicações)
             raise
 
     def log_processing(
-        self, file_path: str, original: str, processed: str, validation: Dict
+        self,
+        file_path: str,
+        original: str,
+        processed: str,
+        validation: Dict,
+        metadata: Dict,
     ) -> None:
         """Log detalhado do processamento"""
         from .linkedin_poster import logger
 
         logger.info(f"📄 Arquivo processado: {file_path}")
+        logger.info(f"📝 Título: {metadata.get('title', 'N/A')}")
         logger.info(f"📏 Tamanho original: {len(original)} chars")
         logger.info(f"📏 Tamanho processado: {len(processed)} chars")
         logger.info(f"📊 Hashtags: {validation['stats'].get('hashtag_count', 0)}")
         logger.info(f"😀 Emojis: {validation['stats'].get('emoji_count', 0)}")
+        logger.info(f"📝 Palavras originais: {metadata.get('word_count', 0)}")
 
         if validation["issues"]:
             logger.warning(f"⚠️ Issues: {', '.join(validation['issues'])}")
@@ -236,12 +224,6 @@ async def process_html_to_linkedin(file_path: str) -> str:
     """Função helper para processar HTML para LinkedIn"""
     processor = PostProcessor()
     return await processor.process_html_file(file_path)
-
-
-def extract_text_from_file(file_path: str) -> str:
-    """Função helper para extrair texto de arquivo"""
-    processor = PostProcessor()
-    return processor.extract_text_from_html(file_path)
 
 
 # Teste local

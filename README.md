@@ -2,12 +2,12 @@
 
 Automatiza a publicação de posts no LinkedIn usando **pipeline inteligente**: **Telegram → GPT-4o-mini → LinkedIn**.
 
-**Versão 2.5.0** - Pipeline Completo de Automação de Conteúdo
+**Versão 2.5.1** - Arquitetura Modular com Sistema Padronizado
 
 ## ✨ Características
 
 - 🤖 **Pipeline Inteligente**: Telegram Bot → GPT-4o-mini → LinkedIn
-- 📱 **Bot Telegram**: Recebe arquivos HTML via chat
+- 📱 **Bot Telegram**: Recebe arquivos HTML via chat com validações
 - 🧠 **Processamento GPT**: Melhora e corrige textos automaticamente
 - 🎯 **Publicação Automática**: Posts otimizados direto no LinkedIn
 - 📊 **Observabilidade CSV**: Auditoria completa em formato estruturado
@@ -16,428 +16,350 @@ Automatiza a publicação de posts no LinkedIn usando **pipeline inteligente**: 
 - 🔒 **Seguro**: Configuração com variáveis de ambiente
 - 📸 **Screenshots on Error**: Debug automático com capturas de tela
 
-## 🔄 Pipeline Workflow
+## 🏗️ Arquitetura Modular
+
+### 📁 Estrutura de Módulos
 
 ```
-📱 Telegram Bot
-    ↓ (recebe arquivo HTML)
-📥 Download para /posts
-    ↓ 
-🤖 GPT-4o-mini
-    ↓ (extrai + melhora + corrige)
-📝 Conteúdo Otimizado
-    ↓
-🔗 LinkedIn Poster
-    ↓
-✅ Post Publicado + 📊 Log CSV
+app/
+├── html_parser.py        # Parser HTML puro (extração e validação)
+├── post_processor.py     # Processamento GPT-4o-mini
+├── telegram_bot.py       # Bot Telegram com validações
+└── linkedin_poster.py    # Automação LinkedIn + observabilidade
 ```
 
-## 📋 Estrutura do Projeto
+### 🔄 Pipeline Workflow
 
 ```
-publicador/
-├── app/
-│   ├── linkedin_poster.py      # 🎯 Código principal com observabilidade
-│   ├── telegram_bot.py         # 🤖 Bot Telegram para receber arquivos
-│   └── post_processor.py       # 🧠 Processador GPT-4o-mini
-├── posts/                      # 📁 Arquivos HTML recebidos
-├── logs/                       # 📊 Logs rotativos e screenshots
-│   ├── poster.log              # 📝 Logs detalhados
-│   ├── linkedin_audit.csv      # 📈 Auditoria estruturada
-│   └── fail_*.png              # 📸 Screenshots de erro
-├── iniciar_telegram_bot.sh     # 🚀 Iniciar bot Telegram
-├── test_pipeline.py            # 🧪 Teste completo do pipeline
-├── docker-compose.yml          # 🐳 Configuração Docker + volumes
-├── requirements.txt            # 📚 Dependências (+ Telegram + OpenAI)
-├── .env.example               # 🔐 Modelo completo
-└── README.md                  # 📖 Este arquivo
+1. 📥 Telegram → Receber arquivo HTML
+2. ✅ Validar conteúdo e horário
+3. 📄 Extrair texto + metadados
+4. 🤖 Processar com GPT-4o-mini
+5. 🔗 Publicar no LinkedIn
+6. 💾 Salvar metadata.json
+7. 📊 Registrar CSV audit
 ```
 
-## 🚀 Execução Rápida
+## 📋 Sistema de Arquivos Padronizado
 
-### 🤖 Pipeline Telegram → GPT → LinkedIn
+### 📁 Formato de Arquivos
+
+```
+posts/
+├── 20241220_143025_inteligencia-artificial-educacao.html
+├── 20241220_143025_inteligencia-artificial-educacao.metadata.json
+├── 20241220_151530_futuro-trabalho-remoto.html
+└── 20241220_151530_futuro-trabalho-remoto.metadata.json
+```
+
+### 📊 Estrutura metadata.json
+
+```json
+{
+  "file_path": "posts/20241220_143025_ia-educacao.html",
+  "title": "Inteligência Artificial na Educação",
+  "word_count": 156,
+  "char_count": 987,
+  "telegram": {
+    "user_id": 123456789,
+    "file_name": "artigo-ia.html",
+    "received_at": "2024-12-20T14:30:25"
+  },
+  "processing": {
+    "status": "published",
+    "pipeline_id": "tg_20241220_143025_123456789",
+    "final_content": "🚀 A revolução da IA na educação...",
+    "published_at": "2024-12-20T14:31:45"
+  },
+  "validation": {
+    "html_valid": true,
+    "time_check": {
+      "warnings": [],
+      "recommendations": ["✅ Bom horário para posting (14:30)"]
+    }
+  }
+}
+```
+
+## ⚙️ Instalação
+
+### 1. 📦 Configurar Ambiente
 
 ```bash
-# 1. Configurar credenciais
+git clone <repository>
+cd publicador
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. 🔧 Configurar Variáveis
+
+```bash
 cp .env.example .env
-# Editar .env com suas credenciais (Telegram + OpenAI + LinkedIn)
-
-# 2. Iniciar bot Telegram
-./iniciar_telegram_bot.sh
-
-# 3. Testar pelo Telegram:
-#    - Envie /start para seu bot
-#    - Envie um arquivo HTML
-#    - Aguarde processamento automático
+# Editar .env com suas credenciais
 ```
 
-### 🧪 Teste do Pipeline
-
-```bash
-# Testar todos os componentes
-python test_pipeline.py
-```
-
-### 🐳 Docker (tradicional)
-
-```bash
-# Setup do volume de logs
-sudo ./setup_logs.sh
-
-# Executar
-./iniciar.sh
-
-# Monitorar
-./monitor_logs.sh
-```
-
-## 🔧 Configuração (.env)
+### 3. 🔑 Configurações Obrigatórias
 
 ```env
-# === CREDENCIAIS LINKEDIN ===
+# LinkedIn
 LINKEDIN_EMAIL=seu.email@gmail.com
 LINKEDIN_PASSWORD=SuaSenhaSegura123
 
-# === PIPELINE TELEGRAM → GPT → LINKEDIN ===
-# Telegram Bot
-TELEGRAM_BOT_TOKEN=1234567890:ABC123defHIJKLmnopQRSTuvwXYZ
-TELEGRAM_AUTHORIZED_USERS=123456789,987654321
-
-# OpenAI API para processamento
+# OpenAI (GPT-4o-mini)
 OPENAI_API_KEY=sk-proj-sua_api_key_openai
 
-# === ALERTAS E NOTIFICAÇÕES ===
-# Telegram (alertas)
-TELEGRAM_CHAT_ID=123456789
-
-# Discord Webhook (opcional)
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/123/ABC123
-
-# === CONFIGURAÇÕES TÉCNICAS ===
-BROWSER=chromium
-DEBUG_MODE=false
+# Telegram Bot
+TELEGRAM_BOT_TOKEN=seu_token_do_bot_telegram
+TELEGRAM_AUTHORIZED_USERS=123456789,987654321
 ```
 
-## 🤖 Bot Telegram - Comandos
+### 4. 🤖 Criar Bot Telegram
 
-### Comandos Disponíveis
-- `/start` - Instruções e boas-vindas
-- `/status` - Status do sistema (OpenAI, LinkedIn, etc.)
-- `/stats` - Estatísticas do pipeline via CSV
+1. Conversar com [@BotFather](https://t.me/BotFather)
+2. Executar `/newbot`
+3. Escolher nome e username
+4. Copiar token para `.env`
+5. Obter seu ID: `/start` em [@userinfobot](https://t.me/userinfobot)
 
-### Workflow do Bot
-1. **Envie arquivo HTML** para o bot
-2. **Validação automática** (formato, tamanho)
-3. **Download** para diretório `/posts`
-4. **Processamento GPT-4o-mini**: extração + melhoria + correção
-5. **Publicação LinkedIn** automática
-6. **Confirmação** com ID de execução e métricas
+## 🚀 Uso
 
-### Validações de Segurança
-- ✅ **Usuários autorizados** (`TELEGRAM_AUTHORIZED_USERS`)
-- ✅ **Apenas arquivos HTML** (.html)
-- ✅ **Limite de tamanho** (10MB)
-- ✅ **Timeout de processamento** (60s)
+### 📱 Bot Telegram
 
-## 🧠 Processador GPT-4o-mini
+```bash
+# Iniciar bot
+./iniciar_telegram_bot.sh
 
-### Funcionalidades
-- 📄 **Extração inteligente** de texto de HTML
-- 🎯 **Otimização para LinkedIn** (1300 chars max)
-- ✅ **Correção gramatical** automática
-- 📊 **Validação de conteúdo** (hashtags, emojis)
-- 🏷️ **Hashtags relevantes** (3-5 automáticas)
-
-### Prompt de Otimização
-```
-DIRETRIZES:
-1. Tom: Profissional mas acessível
-2. Tamanho: Máximo 1300 caracteres
-3. Estrutura: Gancho + desenvolvimento + call-to-action
-4. Hashtags: 3-5 relevantes no final
-5. Emojis: Usar com moderação (2-3 máximo)
-6. Engajamento: Pergunta ou convite à discussão
+# Ou Python direto
+python -m app.telegram_bot
 ```
 
-## 📊 Sistema de Observabilidade Expandido
+### 💬 Comandos do Bot
 
-### 🗂️ Log CSV - Novos Eventos
+- `/start` - Instruções e status de horário
+- `/status` - Verificar configurações do sistema
+- `/stats` - Estatísticas avançadas com metadata
+
+### 📤 Envio de Arquivos
+
+1. 📄 Envie arquivo HTML para o bot
+2. ✅ Receba validação automática
+3. ⏰ Veja recomendações de horário
+4. 🤖 Aguarde processamento GPT
+5. 🔗 Receba confirmação de publicação
+
+### ⏰ Validações de Horário
+
+**Horários Ideais (LinkedIn):**
+- 📅 **Dias úteis**: Segunda a sexta
+- 🕐 **Horários**: 8h-18h (melhor: 8h-10h, 17h-19h)
+- ⚠️ **Evitar**: Fins de semana e horários noturnos
+
+## 🐳 Docker
+
+### 🔧 Configuração
+
+```yaml
+# docker-compose.yml
+volumes:
+  - /var/log/linkedin:/logs:rw
+  - linkedin-cache:/app/.cache
+```
+
+### 🚀 Execução
+
+```bash
+# Configurar logs
+sudo ./setup_logs.sh
+
+# Subir containers
+docker-compose up -d
+```
+
+## 📊 Monitoramento
+
+### 📈 Logs em Tempo Real
+
+```bash
+# Monitor interativo
+./monitor_logs.sh
+
+# Opções disponíveis:
+1) Logs em tempo real
+2) Análise CSV completa  
+3) Filtrar erros
+4) Screenshots de erro
+5) Estatísticas do sistema
+6) Buscar termo
+7) Atividade recente
+8) Status dos componentes
+```
+
+### 📋 Auditoria CSV
+
 ```csv
 timestamp,execution_id,action,success,post_text,current_url,error_type,error_msg,screenshot_path,duration_ms
-2024-12-20T16:00:15,tg_20241220_160015_123,telegram_start,True,,file://posts/article.html,,,,0
-2024-12-20T16:00:18,tg_20241220_160015_123,gpt_processing,True,"🚀 A IA está...",file://posts/article.html,,,,3000
-2024-12-20T16:00:25,tg_20241220_160015_123,login,True,,https://linkedin.com/feed/,,,,2500
-2024-12-20T16:00:35,tg_20241220_160015_123,publish_post,True,"🚀 A IA está...",https://linkedin.com/feed/,,,,5000
-2024-12-20T16:00:37,tg_20241220_160015_123,pipeline_complete,True,"🚀 A IA está...",https://linkedin.com/feed/,,,,22000
+2024-12-20 14:30:25,tg_20241220_143025_123,telegram_start,True,"","file://posts/ia.html","","","",0
+2024-12-20 14:30:45,tg_20241220_143025_123,gpt_processing,True,"🚀 A revolução da IA...","file://posts/ia.html","","","",1250
+2024-12-20 14:31:20,tg_20241220_143025_123,pipeline_complete,True,"🚀 A revolução da IA...","https://linkedin.com/feed/","","","",2840
 ```
 
-### 📈 Novos Tipos de Ação
-- `telegram_start` - Início do pipeline via bot
-- `gpt_processing` - Processamento com GPT-4o-mini
-- `pipeline_complete` - Sucesso completo do pipeline
-- `pipeline_error` - Erro em qualquer etapa
+## 🔧 Testes
 
-## 🔧 Setup Detalhado
+### 🧪 Testes Individuais
 
-### 🤖 Configurar Bot Telegram
-
-1. **Criar bot**: Fale com [@BotFather](https://t.me/botfather)
-2. **Comando**: `/newbot`
-3. **Nome**: LinkedIn Content Bot (ou escolha sua)
-4. **Username**: seu_linkedin_bot
-5. **Token**: Copiar para `TELEGRAM_BOT_TOKEN`
-
-### 🔍 Obter seu Chat ID
 ```bash
-# Envie /start para @userinfobot
-# Ou use este método:
-curl https://api.telegram.org/bot<TOKEN>/getUpdates
-```
+# Testar parser HTML
+python app/html_parser.py arquivo.html
 
-### 🧠 Configurar OpenAI API
+# Testar processamento GPT
+python app/post_processor.py arquivo.html
 
-1. **Acesse**: https://platform.openai.com/api-keys
-2. **Crie nova chave**: "LinkedIn Pipeline Key"
-3. **Copie**: Para `OPENAI_API_KEY`
-4. **Modelos suportados**: gpt-4o-mini (recomendado)
-
-### 🔐 Configurar Usuários Autorizados
-```env
-# IDs separados por vírgula
-TELEGRAM_AUTHORIZED_USERS=123456789,987654321
-
-# Para obter seu ID, envie /start para @userinfobot
-```
-
-## 🧪 Testes e Validação
-
-### Teste Completo
-```bash
+# Testar pipeline completo
 python test_pipeline.py
 ```
 
-**Testa:**
-- ✅ Configurações (Telegram, OpenAI, LinkedIn)
-- ✅ Diretórios e permissões
-- ✅ Extração de texto HTML
-- ✅ Processamento GPT-4o-mini
-- ✅ Validação de conteúdo
-- ✅ Conectividade APIs
+### 📊 Exemplo de Validação
 
-### Teste Manual do Processador
 ```bash
-# Criar arquivo HTML de teste
-echo '<html><body><h1>Teste IA</h1><p>Inteligência artificial transformando educação...</p></body></html>' > posts/teste.html
-
-# Processar
-python -m app.post_processor posts/teste.html
+✅ Arquivo válido!
+📊 Estatísticas: {
+  'char_count': 1250,
+  'word_count': 205,
+  'title': 'IA na Educação',
+  'has_title': True
+}
+📄 Texto extraído: 1250 caracteres
+📝 Título: IA na Educação
+🔗 Slug: ia-na-educacao
 ```
 
-## 📱 Exemplo de Uso Telegram
+## 🚨 Alertas
 
-### Conversa de Exemplo
-```
-Você: /start
+### 📢 Telegram Alerts
 
-Bot: 🚀 LinkedIn Content Pipeline Bot
+```markdown
+🚨 **Erro no Pipeline Telegram**
 
-Envie um arquivo HTML e eu vou:
-1. 📥 Baixar o arquivo
-2. 🤖 Processar com GPT-4o-mini  
-3. 🔗 Publicar no LinkedIn
-4. 📊 Registrar na auditoria
+**Erro:** TimeoutException: Element not found
+**URL:** https://linkedin.com/feed/
+**Arquivo:** posts/20241220_143025_artigo.html
+**Tempo:** 2024-12-20 14:30:25
 
-Você: [envia arquivo.html]
-
-Bot: 📥 Recebido: artigo.html
-🔄 Iniciando pipeline...
-
-Bot: 📥 Arquivo baixado
-🤖 Processando com GPT-4o-mini...
-
-Bot: ✅ Pipeline concluído com sucesso!
-
-🆔 ID: tg_20241220_160015_123
-⏱️ Tempo: 22000ms
-📝 Conteúdo: 🚀 A inteligência artificial está revolucionando a educação...
-
-🔗 Post publicado no LinkedIn!
+**Screenshot:** /logs/error_20241220_143025.png
 ```
 
-## 🔍 Monitoramento Avançado
+### 🎯 Discord Webhooks
 
-### Monitor Interativo Expandido
-```bash
-./monitor_logs.sh
+```json
+{
+  "content": "🚨 **Falha na Publicação LinkedIn**",
+  "embeds": [{
+    "title": "Pipeline Error",
+    "description": "NoSuchElementException em //*[@data-test='share-box']",
+    "color": 15158332,
+    "timestamp": "2024-12-20T14:30:25.000Z"
+  }]
+}
 ```
 
-**Novas opções:**
-- 📱 **Pipelines Telegram**: Filtrar apenas execuções via bot
-- 🤖 **Processamento GPT**: Ver logs de otimização
-- 📊 **Métricas de pipeline**: Tempo médio, taxa de sucesso
+## 📈 Analytics
 
-### Analytics Pipeline
+### 🔍 Consultas SQL-like
+
 ```python
 import pandas as pd
 
 # Carregar dados
 df = pd.read_csv('logs/linkedin_audit.csv')
 
-# Pipelines Telegram
-telegram_pipelines = df[df['execution_id'].str.startswith('tg_')]
+# Taxa de sucesso
+success_rate = df['success'].mean() * 100
 
-# Tempo médio de processamento GPT
-gpt_time = df[df['action'] == 'gpt_processing']['duration_ms'].mean()
+# Posts por horário
+df['hour'] = pd.to_datetime(df['timestamp']).dt.hour
+best_hours = df.groupby('hour')['success'].mean()
 
-# Taxa de sucesso por tipo
-success_rate = df.groupby('action')['success'].mean() * 100
+# Performance por dia da semana
+df['weekday'] = pd.to_datetime(df['timestamp']).dt.day_name()
+weekday_performance = df.groupby('weekday')['success'].mean()
 ```
 
-## 🚨 Alertas Expandidos
+### 📊 Dashboards
 
-### Novos Tipos de Alerta
-- 🤖 **Erro GPT**: Falha no processamento OpenAI
-- 📱 **Bot offline**: Telegram bot fora do ar
-- 📁 **Arquivo inválido**: HTML malformado
-- ⏱️ **Pipeline timeout**: Processo muito longo
+- **📈 Grafana**: Conectar ao CSV para dashboards
+- **📋 Excel/Sheets**: Importar CSV para análises
+- **🔍 Jupyter**: Análises avançadas com pandas
 
-### Exemplo de Alerta
-```
-🚨 LinkedIn Bot Alert
+## 🔧 Troubleshooting
 
-**Erro**: GPT Processing Failed
-**Mensagem**: API rate limit exceeded
-**Arquivo**: posts/article_20241220.html
-**Execution ID**: tg_20241220_160015_123
-**Timestamp**: 2024-12-20 16:00:15
-```
+### ❌ Problemas Comuns
 
-## 📊 Performance v2.5.0
-
-- **Pipeline completo**: ~30-60 segundos
-- **Processamento GPT**: ~3-10 segundos  
-- **Publicação LinkedIn**: ~15-30 segundos
-- **Taxa de sucesso**: 95%+ (com retry automático)
-- **Arquivos suportados**: até 10MB HTML
-- **Conteúdo otimizado**: 1300 chars max (LinkedIn)
-
-## 🆚 Comparação de Versões
-
-| Funcionalidade | v2.4.0 | v2.5.0 |
-|----------------|--------|--------|
-| **Entrada** | Manual | 🤖 Bot Telegram |
-| **Processamento** | Texto direto | 🧠 GPT-4o-mini |
-| **Workflow** | 1 etapa | 🔄 Pipeline 3 etapas |
-| **Formato** | Texto simples | 📄 HTML → Otimizado |
-| **Automação** | Semi-automático | 🚀 Totalmente automático |
-| **UX** | Linha de comando | 📱 Chat amigável |
-
-## 🆘 Resolução de Problemas
-
-### ❌ "Bot não responde"
+**Bot não responde:**
 ```bash
 # Verificar token
-./test_pipeline.py
+echo $TELEGRAM_BOT_TOKEN
 
-# Verificar logs
-./monitor_logs.sh → Opção 1 (Logs principais)
+# Verificar usuários autorizados
+echo $TELEGRAM_AUTHORIZED_USERS
 
-# Reiniciar bot
-pkill -f telegram_bot.py
-./iniciar_telegram_bot.sh
+# Logs do bot
+tail -f logs/app.log | grep telegram
 ```
 
-### ❌ "Erro GPT"
+**Erro GPT-4o-mini:**
 ```bash
 # Verificar API key
+echo $OPENAI_API_KEY
+
+# Teste de conectividade
 curl -H "Authorization: Bearer $OPENAI_API_KEY" \
      https://api.openai.com/v1/models
-
-# Ver limite de uso
-https://platform.openai.com/usage
 ```
 
-### ❌ "Arquivo não processado"
+**LinkedIn falha:**
 ```bash
-# Verificar formato
-file posts/arquivo.html
+# Screenshots de debug
+ls logs/error_*.png
 
-# Testar extração manual
-python -c "
-from app.post_processor import extract_text_from_file
-print(extract_text_from_file('posts/arquivo.html'))
-"
+# Logs específicos
+grep "linkedin" logs/linkedin_audit.csv
 ```
 
-## 📝 Exemplo de Pipeline Completo
+## 📝 Changelog
 
-### Input HTML
-```html
-<!DOCTYPE html>
-<html><body>
-<article>
-    <h1>O Futuro da Automação</h1>
-    <p>A automação está transformando industrias inteiras. 
-    Empresas que abraçam essas tecnologias ganham vantagem competitiva 
-    significativa, melhorando eficiencia e reduzindo custos operacionais.</p>
-</article>
-</body></html>
-```
+### v2.5.1 (2024-12-20)
 
-### Output LinkedIn Otimizado
-```
-🚀 A automação está revolucionando indústrias inteiras!
+**🏗️ REFATORAÇÃO MODULAR COMPLETA:**
 
-Empresas que abraçam essas tecnologias conquistam vantagem competitiva significativa:
+**Separação de Módulos:**
+- ✅ `html_parser.py` - Parser HTML puro e independente
+- ✅ `post_processor.py` - Processamento GPT focado
+- ✅ `telegram_bot.py` - Bot com validações avançadas
+- ✅ `linkedin_poster.py` - Automação + observabilidade
 
-✅ Maior eficiência operacional
-✅ Redução de custos
-✅ Melhoria na qualidade dos processos
+**Sistema de Arquivos Padronizado:**
+- ✅ Nomenclatura: `YYYYMMDD_HHMMSS_slug-titulo.html`
+- ✅ Metadata JSON completo para cada arquivo
+- ✅ Tracking de status: received → processing → published/error
 
-O futuro pertence às organizações que inovam hoje. 
+**Validações Avançadas:**
+- ✅ Conteúdo HTML (tamanho, estrutura, metadados)
+- ✅ Horário de posting (dias úteis, horários ideais)
+- ✅ Slug automático com remoção de acentos
+- ✅ Prevenção de conflitos de nome
 
-Qual sua experiência com automação na sua área? 👇
+**Melhorias de UX:**
+- ✅ Mensagens informativas com progresso
+- ✅ Estatísticas detalhadas com metadata
+- ✅ Recomendações de horário em tempo real
+- ✅ Arquivos temporários com limpeza automática
 
-#Automacao #Inovacao #Tecnologia #Eficiencia #FuturoDoTrabalho
-```
+## 📄 Licença
 
-## 🔧 Melhorias v2.5.0 - Pipeline Inteligente
-
-### 🤖 Bot Telegram Completo
-- ✅ **3 comandos**: /start, /status, /stats
-- ✅ **Validação robusta**: formato, tamanho, usuários
-- ✅ **Feedback em tempo real**: progresso step-by-step
-- ✅ **Integração observabilidade**: logs + alertas
-
-### 🧠 Processador GPT-4o-mini
-- ✅ **Extração inteligente**: BeautifulSoup + priorização de conteúdo
-- ✅ **Prompt otimizado**: 7 diretrizes específicas LinkedIn
-- ✅ **Validação avançada**: caracteres, hashtags, emojis
-- ✅ **Truncamento inteligente**: preserva integridade do texto
-
-### 🔄 Pipeline Orchestration
-- ✅ **Workflow assíncrono**: Python asyncio
-- ✅ **Error handling**: rollback e cleanup automático
-- ✅ **Retry logic**: tentativas automáticas
-- ✅ **Timeout management**: limites por etapa
-
-### 📊 Observabilidade Expandida
-- ✅ **5 novos eventos**: telegram_start, gpt_processing, etc.
-- ✅ **Execution ID único**: formato tg_YYYYMMDD_HHMMSS_user
-- ✅ **Métricas detalhadas**: tempo por etapa
-- ✅ **Context tracking**: arquivo → GPT → LinkedIn
-
-### 📦 Dependências Adicionadas
-- `python-telegram-bot==20.7` - Bot Telegram async
-- `openai==1.5.0` - Cliente OpenAI GPT-4o-mini
-- `beautifulsoup4==4.12.2` - Parser HTML inteligente
+MIT License - Veja LICENSE para detalhes.
 
 ---
 
-**📧 Suporte**: Execute `./test_pipeline.py` para diagnóstico completo  
-**🤖 Bot**: Configure TELEGRAM_BOT_TOKEN e inicie com `./iniciar_telegram_bot.sh`  
-**🧠 GPT**: Configure OPENAI_API_KEY para processamento inteligente  
-**📊 Observabilidade**: CSV em `logs/linkedin_audit.csv` para análise  
-**🚨 Alertas**: Configure Telegram/Discord para notificações  
-**⭐ Contribuição**: Veja CHANGELOG.md para histórico completo  
-**🔄 Versão**: 2.5.0 - Pipeline Inteligente Telegram → GPT → LinkedIn 
+**Versão Atual**: 2.5.1 | **Última Atualização**: 2024-12-20 | **Módulos**: Separados e Otimizados 
