@@ -6,6 +6,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import uuid
 
 # === Carregar variáveis do .env ===
 load_dotenv()
@@ -122,10 +123,25 @@ def get_driver():
         else:
             log("👁️ Modo visual ativado - você verá o navegador!")
 
+        # Argumentos essenciais para evitar conflitos
         opts.add_argument("--disable-gpu")
         opts.add_argument("--window-size=1920,1080")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
+
+        # Argumentos únicos para evitar conflitos de user-data-dir
+        unique_id = str(uuid.uuid4())[:8]
+        opts.add_argument(f"--user-data-dir=/tmp/chrome-data-{unique_id}")
+        opts.add_argument("--disable-extensions")
+        opts.add_argument("--disable-plugins")
+        opts.add_argument("--disable-images")
+        opts.add_argument("--disable-web-security")
+        opts.add_argument("--remote-debugging-port=0")  # Porta automática
+
+        # Melhorar performance
+        opts.add_argument("--disable-background-timer-throttling")
+        opts.add_argument("--disable-backgrounding-occluded-windows")
+        opts.add_argument("--disable-renderer-backgrounding")
 
         log("🌐 Usando Chrome/Chromium...")
         return webdriver.Chrome(options=opts)

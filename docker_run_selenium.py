@@ -2,7 +2,7 @@
 """
 Script para execução no Docker usando imagem oficial do Selenium
 """
-import os, time
+import os, time, uuid
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -122,6 +122,19 @@ def get_driver():
     opts.add_argument("--disable-gpu")
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument("--remote-debugging-port=9222")
+
+    # Argumentos únicos para evitar conflitos de user-data-dir
+    unique_id = str(uuid.uuid4())[:8]
+    opts.add_argument(f"--user-data-dir=/tmp/chrome-data-{unique_id}")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--disable-plugins")
+    opts.add_argument("--disable-images")
+    opts.add_argument("--disable-web-security")
+
+    # Melhorar performance
+    opts.add_argument("--disable-background-timer-throttling")
+    opts.add_argument("--disable-backgrounding-occluded-windows")
+    opts.add_argument("--disable-renderer-backgrounding")
 
     # Tentar conectar ao Chrome local do Selenium Grid
     try:

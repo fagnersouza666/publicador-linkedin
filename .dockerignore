@@ -1,0 +1,60 @@
+# Arquivos e diretórios a ignorar no contexto Docker
+
+# Ambiente virtual Python
+.venv/
+venv/
+env/
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Arquivos sensíveis
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+logs/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporários
+tmp/
+temp/
+*.tmp
+
+# Screenshots de debug
+*.png
+*.jpg
+*.jpeg
+
+# Documentação que não precisa no container
+README.md
+CHANGELOG.md
+*.md
+
+# Scripts locais
+debug_local.py
+run_local.py
+
+# Docker files (não precisam dentro do container)
+Dockerfile*
+docker-compose*.yml
+.dockerignore 
