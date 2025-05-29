@@ -28,5 +28,5 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Voltar para usuário seluser (padrão do selenium)
 USER seluser
 
-# Comando para executar o script específico do Selenium
-CMD ["python3", "docker_run_selenium.py"] 
+# Comando para executar o script principal com debug
+CMD ["python3", "-m", "app.linkedin_poster"] 

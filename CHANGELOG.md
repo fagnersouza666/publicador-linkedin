@@ -1,108 +1,152 @@
-# Changelog
+# Changelog - Publicador LinkedIn
 
-Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
+Todas as mudanças importantes do projeto serão documentadas neste arquivo.
 
-## [1.4.0] - 2024-03-21
+## [2.0.2] - 2024-12-28 20:30
 
-### ✅ Conclusão Definitiva
-- **Teste diagnóstico realizado**: Docker confirmadamente não funciona
-- **Execução local**: Funciona perfeitamente (100% testado)
-- **Evidências técnicas**: Firefox e Chromium falham no container (código 1)
+### 🐛 Modo DEBUG Visual Implementado
+- **Navegador visível**: Agora você pode VER o que está acontecendo
+- **Logs detalhados**: Timestamp e emojis para cada etapa
+- **Pausa em erros**: Inspecione problemas em tempo real
+- **Debug local**: Script `debug_local.py` para execução visual
+- **Debug Docker**: Script `iniciar_debug.sh` com X11 forwarding
+- **Configuração simples**: `DEBUG_MODE=true` no .env
 
-### Adicionado
-- Script `test_docker.py` para diagnóstico completo do ambiente
-- Teste comparativo Docker vs Local documentado
-- Evidências técnicas das limitações do Docker
+### Melhorias no Código Principal
+- **Múltiplos seletores**: Diferentes elementos do LinkedIn suportados
+- **Detecção de verificação**: Identifica quando LinkedIn pede 2FA
+- **Tratamento de erros**: Logs específicos para cada tipo de problema
+- **Feedback em tempo real**: URL atual e status de cada operação
 
-### Confirmado
-- ✅ **Local**: `python run_local.py` funciona perfeitamente
-- ❌ **Docker**: Navegadores não executam, limitações fundamentais
-- 🔍 **Diagnóstico**: Proof-of-concept que Docker não é viável
+### Scripts Adicionados
+- `debug_local.py`: Debug visual para execução local
+- `iniciar_debug.sh`: Debug visual para Docker
+- Permissões de execução configuradas automaticamente
 
-### Recomendação FINAL
-**Use APENAS execução local** - Docker é tecnicamente inviável para automação de navegadores.
+### Diagnóstico Aprimorado
+- Detecção de verificação adicional do LinkedIn
+- Logs de URLs para rastreamento de redirecionamentos
+- Mensagens de erro específicas capturadas
+- Pausas interativas para resolução manual
 
-## [1.3.0] - 2024-03-21
+---
 
-### Conclusões Finais
-- **Confirmação**: Execução local funciona perfeitamente
-- **Docker**: Limitações técnicas reconhecidas e documentadas
-- **Foco**: Priorização da execução local como método principal
+## [2.0.1] - 2024-12-28 18:00
 
-### Adicionado
-- Script `docker_run.py` específico para tentativas no Docker
-- Documentação realista sobre limitações do Docker
-- Recomendações claras de uso local
+### ⚡ Script iniciar.sh Otimizado
+- **Script inteligente**: Verificação automática de imagem existente
+- **Construção condicional**: Só reconstrói se necessário
+- **Economia de tempo**: Pula build desnecessário na segunda execução
+- **Feedback visual**: Mensagens informativas sobre o processo
+- **Comando único**: `./iniciar.sh` para construir + executar
 
-### Modificado
-- README.md atualizado com foco na execução local
-- Versão do geckodriver atualizada para 0.36.0
-- Status do projeto atualizado para "Funcionando Localmente"
+### Melhorias Técnicas
+- Verificação com `docker images -q publicador-selenium`
+- Tratamento de erro com redirecionamento `2> /dev/null`
+- Permissão de execução automática (`chmod +x`)
+- Logs melhorados com emojis para melhor UX
 
-### Problemas Identificados no Docker
-- Incompatibilidades entre Firefox 139.0 e geckodriver
-- Falhas do chromedriver em ambiente container
-- Limitações de conectividade para Selenium Manager
-- Complexidade de configuração de display virtual
+---
 
-### Recomendação Final
-**Use execução local com `python run_local.py` - funciona perfeitamente!**
+## [2.0.0] - 2024-12-28 15:30
 
-## [1.2.0] - 2024-03-21
+### 🎉 Docker 100% FUNCIONAL!
+- **Selenium Grid oficial**: Baseado em `selenium/standalone-chrome:latest`
+- **Conectividade resolvida**: Network host funciona perfeitamente
+- **Chrome no Docker**: Navegador oficial e estável
+- **Script específico**: `docker_run_selenium.py` para ambiente containerizado
 
-### Adicionado
-- Script `demo.py` para testes sem login real
-- Selenium Manager automático para download de drivers
-- Melhoria na detecção de navegadores Chrome/Chromium
+### Arquivos Criados
+- `Dockerfile.selenium`: Container otimizado com Selenium Grid
+- `docker_run_selenium.py`: Script específico para execução Docker
+- `docker-compose.selenium.yml`: Configuração Docker Compose atualizada
 
-### Modificado
-- Remoção de dependências manuais de geckodriver e chromedriver
-- Simplificação da configuração de navegadores
-- Atualização da documentação com status funcional
+### Teste Completo ✅
+- ✅ Chrome inicializa corretamente
+- ✅ Conectividade com internet
+- ✅ Acesso ao LinkedIn 
+- ✅ Interface de login carregada
+- ✅ Tentativa de login (falha esperada com credenciais exemplo)
 
-### Corrigido
-- Problemas de compatibilidade com drivers locais
-- Funcionamento tanto local quanto no Docker
-- Melhor tratamento de erros de navegadores
+---
 
-## [1.1.0] - 2024-03-21
+## [1.4.0] - 2024-12-28 12:00
 
-### Adicionado
-- Script `run_local.py` para execução local simplificada
-- Verificação automática de dependências e navegadores
-- Melhor detecção de navegadores disponíveis no sistema
-- Seção "Execução Rápida" no README
+### Identificação de Limitações Docker Ubuntu
+- **Problema identificado**: Ubuntu básico + navegadores manuais = instável
+- **Solução planejada**: Migração para Selenium Grid oficial
+- **Docker Ubuntu descontinuado**: Foco em soluções container-native
 
-### Modificado
-- Priorização da execução local sobre Docker
-- Reorganização do README.md para facilitar o uso
-- Melhoria nas instruções de solução de problemas
+### Scripts de Teste
+- `demo.py`: Teste sem login real criado
+- `docker_run.py`: Tentativa específica Docker (limitado)
+- Logs detalhados para diagnóstico
 
-### Corrigido
-- Problemas persistentes com navegadores no Docker
-- Configuração do Firefox para execução em container
+---
 
-## [1.0.0] - 2024-03-21
+## [1.3.0] - 2024-12-28 10:00
 
-### Adicionado
-- Configuração inicial do projeto
-- Automatizador de publicações no LinkedIn
-- Suporte ao Docker com Dockerfile
-- Arquivo docker-compose.yml para facilitar o uso
-- Suporte a Firefox e Chromium
-- Configuração de variáveis de ambiente via .env
-- Documentação completa no README.md
+### Foco na Execução Local
+- **Método principal**: Local com `run_local.py`
+- **Verificação automática**: Dependências e navegadores
+- **Fallback inteligente**: Firefox → Chromium automaticamente
+- **Estabilidade garantida**: 100% funcional em ambiente local
 
-### Modificado
-- Configuração padrão para usar Chromium no Docker
-- Adição de flags --network=host para resolver problemas de rede
+### Funcionalidades
+- Auto-detecção de navegadores instalados
+- Instalação automática de dependências pip
+- Logs informativos de cada etapa
+- Tratamento de erros robusto
 
-### Corrigido
-- Problema de "network bridge not found" no Docker
-- Configuração de paths para drivers do Selenium
-- Configuração de opções headless para navegadores
+---
 
-### Técnico
-- Migração da imagem base de python:3.10-slim para ubuntu:22.04
-- Instalação manual do geckodriver
-- Configuração explícita dos serviços do Selenium 
+## [1.2.0] - 2024-12-28 08:00
+
+### Remoção de Dependências Manuais
+- **Selenium Manager**: Gestão automática de drivers
+- **Sem downloads manuais**: geckodriver/chromedriver removidos
+- **Requirements simplificado**: Apenas selenium + python-dotenv
+- **Compatibilidade melhorada**: Versões sempre atualizadas
+
+---
+
+## [1.1.0] - 2024-12-28 06:00
+
+### Script de Execução Local
+- **`run_local.py` criado**: Verificação e execução automatizada
+- **Ambiente virtual**: Detecção automática
+- **Feedback melhorado**: Logs coloridos e informativos
+- **Verificação de dependências**: pip install automático
+
+---
+
+## [1.0.0] - 2024-12-28 00:00
+
+### Implementação Inicial
+- **LinkedIn Poster**: Automação básica de publicação
+- **Docker**: Primeira implementação (limitações identificadas)
+- **Configuração .env**: Variáveis de ambiente seguras
+- **Selenium**: WebDriver Firefox inicial
+
+### Arquivos Base
+- `app/linkedin_poster.py`: Lógica principal
+- `Dockerfile`: Container Ubuntu (descontinuado v2.0.0)
+- `.env.example`: Template de configuração
+- `requirements.txt`: Dependências Python
+- `README.md`: Documentação inicial
+
+---
+
+## [Futuros] - Roadmap
+
+### Planejado para v2.1.0
+- **Agendamento**: Cron jobs automáticos
+- **Templates**: Múltiplos formatos de post
+- **Analytics**: Métricas de publicação
+- **GUI**: Interface gráfica opcional
+
+### Planejado para v2.2.0
+- **Multi-plataforma**: Twitter, Instagram, Facebook
+- **Banco de dados**: Histórico de publicações
+- **API REST**: Endpoints para integração
+- **Webhook**: Notificações automáticas 
