@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 # === Carregar variáveis do .env ===
 load_dotenv()
@@ -19,6 +20,92 @@ def log(message):
     """Log com timestamp para debug"""
     timestamp = time.strftime("%H:%M:%S")
     print(f"[{timestamp}] {message}")
+
+
+def wait_for_element(driver, selectors, timeout=5, method="css"):
+    """
+    Aguarda por um elemento usando múltiplos seletores
+
+    Args:
+        driver: WebDriver instance
+        selectors: Lista de seletores para tentar
+        timeout: Tempo limite em segundos
+        method: "css", "xpath" ou "mixed" (detecta automaticamente)
+
+    Returns:
+        WebElement encontrado ou None
+    """
+    log(f"🔍 Aguardando elemento com {len(selectors)} seletores...")
+
+    wait = WebDriverWait(driver, timeout)
+
+    for i, selector in enumerate(selectors):
+        try:
+            # Verificar se a sessão ainda está ativa
+            try:
+                driver.current_url
+            except:
+                log("❌ Sessão do navegador perdida")
+                return None
+
+            if method == "mixed":
+                # Detecta automaticamente se é XPath ou CSS
+                if selector.startswith("//") or selector.startswith("("):
+                    element = wait.until(
+                        EC.presence_of_element_located((By.XPATH, selector))
+                    )
+                else:
+                    element = wait.until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+            elif method == "xpath":
+                element = wait.until(
+                    EC.presence_of_element_located((By.XPATH, selector))
+                )
+            else:
+                element = wait.until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                )
+
+            log(f"✅ Elemento encontrado com seletor {i+1}: {selector}")
+            return element
+
+        except TimeoutException:
+            continue
+        except Exception as e:
+            log(f"⚠️ Erro ao procurar elemento com seletor {i+1}: {e}")
+            continue
+
+    log(f"❌ Nenhum elemento encontrado após {timeout}s")
+    return None
+
+
+def safe_click(driver, element, description="elemento"):
+    """
+    Clica em um elemento de forma segura, com fallback para JavaScript
+    """
+    try:
+        # Scroll até o elemento
+        driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center'});", element
+        )
+        time.sleep(0.5)
+
+        # Tentar clique normal
+        element.click()
+        log(f"✅ Clique normal no {description} bem-sucedido")
+        return True
+
+    except Exception as e:
+        log(f"⚠️ Clique normal falhou no {description}: {e}")
+        try:
+            # Fallback para JavaScript
+            driver.execute_script("arguments[0].click();", element)
+            log(f"✅ Clique JavaScript no {description} bem-sucedido")
+            return True
+        except Exception as e2:
+            log(f"❌ Clique JavaScript também falhou no {description}: {e2}")
+            return False
 
 
 # === Inicializa driver ===
@@ -181,97 +268,285 @@ def login(drv):
 def publish_post(drv, text):
     log("📝 Iniciando processo de publicação...")
 
-    log("📰 Navegando para o feed...")
-    drv.get("https://www.linkedin.com/feed/")
-    time.sleep(3)
-
-    log("🎯 Procurando botão 'Começar um post'...")
     try:
-        # Tenta diferentes seletores possíveis
+        log("📰 Navegando para o feed...")
+        drv.get("https://www.linkedin.com/feed/")
+        time.sleep(3)  # Reduzido de 5 para 3
+
+        if DEBUG_MODE:
+            log("🔍 Página carregada, aguardando para inspeção...")
+            time.sleep(1)  # Reduzido de 2 para 1
+
+        log("🎯 Procurando botão 'Começar um post'...")
+
+        # Lista expandida de seletores possíveis (LinkedIn muda frequentemente)
         start_post_selectors = [
+            # Seletores mais recentes (2024)
+            "button[aria-label*='Start a post']",
+            "button[aria-label*='Começar um post']",
+            "button[aria-label*='Commencer un post']",  # Francês
+            "button[aria-label*='Empezar una publicación']",  # Espanhol
+            # Seletores por classe e data attributes
             ".share-box-feed-entry__trigger",
             "[data-test-id='share-box-trigger']",
+            "[data-test-id='start-a-post-button']",
+            ".feed-shared-update-v2__start-conversation-button",
+            # Seletores por conteúdo de texto
+            "//button[contains(text(), 'Start a post')]",
+            "//button[contains(text(), 'Começar um post')]",
+            "//button[contains(text(), 'Commencer un post')]",
+            "//button[contains(text(), 'Empezar una publicación')]",
+            # Seletores genéricos
             ".artdeco-button--primary[aria-label*='post']",
-            "button[aria-label*='Começar um post']",
+            "button.share-box-feed-entry__trigger",
+            ".share-box-feed-entry button",
+            # Fallback para textarea diretamente
+            ".share-box-feed-entry__top-bar",
+            "div[data-test-id='share-box']",
+            # Novos seletores mais genéricos
+            "//button[contains(@aria-label, 'post') or contains(@aria-label, 'Post')]",
+            "button[data-tracking-control-name='public_post_feed-header_publisher-text-content']",
         ]
 
-        post_button = None
-        for selector in start_post_selectors:
-            try:
-                post_button = drv.find_element(By.CSS_SELECTOR, selector)
-                log(f"✅ Botão encontrado com seletor: {selector}")
-                break
-            except:
-                continue
+        # Usar função auxiliar para encontrar o botão - timeout reduzido
+        post_button = wait_for_element(
+            drv, start_post_selectors, timeout=8, method="mixed"
+        )
 
         if not post_button:
-            raise Exception("Botão 'Começar um post' não encontrado")
+            # Tentar estratégias alternativas
+            log("🔄 Tentando estratégias alternativas...")
+
+            # Verificar se há modal ou popup bloqueando
+            try:
+                close_buttons = drv.find_elements(
+                    By.CSS_SELECTOR,
+                    "[aria-label*='Close'], [aria-label*='Fechar'], .artdeco-modal__dismiss",
+                )
+                if close_buttons:
+                    log("🚪 Fechando modal/popup que pode estar bloqueando...")
+                    for btn in close_buttons:
+                        safe_click(drv, btn, "botão fechar modal")
+                    time.sleep(1)  # Reduzido de 2 para 1
+            except:
+                pass
+
+            # Recarregar a página
+            log("🔄 Recarregando página...")
+            drv.refresh()
+            time.sleep(3)  # Reduzido de 5 para 3
+
+            # Tentar novamente com timeout menor
+            post_button = wait_for_element(
+                drv, start_post_selectors, timeout=5, method="mixed"
+            )
+
+            if not post_button:
+                # Screenshot para debug se DEBUG_MODE ativo
+                if DEBUG_MODE:
+                    log("📸 Tirando screenshot para debug...")
+                    try:
+                        drv.save_screenshot("/tmp/linkedin_debug.png")
+                        log("📷 Screenshot salvo em /tmp/linkedin_debug.png")
+                    except:
+                        pass
+
+                log("❌ Possíveis causas:")
+                log("   1. LinkedIn mudou a interface")
+                log("   2. Conta com restrições de publicação")
+                log("   3. Região/idioma não suportado")
+                log("   4. LinkedIn detectou automação")
+
+                raise Exception(
+                    "Botão 'Começar um post' não encontrado com nenhum seletor"
+                )
 
         log("👆 Clicando no botão para começar post...")
-        post_button.click()
-        time.sleep(3)
+        if not safe_click(drv, post_button, "botão começar post"):
+            raise Exception("Falha ao clicar no botão de começar post")
 
-        log("📝 Procurando área de texto...")
+        time.sleep(3)  # Reduzido de 4 para 3
+
+        if DEBUG_MODE:
+            log("⏳ Modal deve ter aberto, aguardando para inspeção...")
+            time.sleep(1)  # Reduzido de 2 para 1
+
+        log("📝 Procurando área de texto do post...")
         text_area_selectors = [
+            # Seletores mais recentes
+            ".ql-editor[data-placeholder]",
+            ".ql-editor p",
+            "div[role='textbox']",
+            # Seletores por placeholder
+            "[data-placeholder*='What do you want to talk about']",
+            "[data-placeholder*='Do que você gostaria de falar']",
+            "[data-placeholder*='De quoi voulez-vous parler']",
+            "[data-placeholder*='¿De qué te gustaría hablar']",
+            # Seletores clássicos
             ".ql-editor",
-            "[data-placeholder='Do que você gostaria de falar?']",
             ".share-creation-state__text-editor .ql-editor",
+            ".share-creation-state__text-editor div[role='textbox']",
+            # Fallbacks
+            "div[contenteditable='true']",
+            ".mentions-texteditor__content",
+            # Seletores mais específicos
+            ".editor-content .ql-editor",
+            ".ql-container .ql-editor",
         ]
 
-        text_area = None
-        for selector in text_area_selectors:
-            try:
-                text_area = drv.find_element(By.CSS_SELECTOR, selector)
-                log(f"✅ Área de texto encontrada com seletor: {selector}")
-                break
-            except:
-                continue
+        # Usar função auxiliar para encontrar área de texto - timeout reduzido
+        text_area = wait_for_element(drv, text_area_selectors, timeout=6, method="css")
 
         if not text_area:
+            if DEBUG_MODE:
+                log("📸 Tirando screenshot do modal para debug...")
+                try:
+                    drv.save_screenshot("/tmp/linkedin_modal_debug.png")
+                    log("📷 Screenshot do modal salvo em /tmp/linkedin_modal_debug.png")
+                except:
+                    pass
             raise Exception("Área de texto não encontrada")
 
         log("✍️ Escrevendo o texto do post...")
-        text_area.click()
-        time.sleep(1)
-        text_area.send_keys(text)
+        # Scroll até a área de texto
+        drv.execute_script("arguments[0].scrollIntoView({block: 'center'});", text_area)
+        time.sleep(0.5)  # Reduzido de 1 para 0.5
+
+        # Focar na área de texto
+        if not safe_click(drv, text_area, "área de texto"):
+            log("⚠️ Falha ao clicar na área de texto, tentando foco direto...")
+            drv.execute_script("arguments[0].focus();", text_area)
+
+        time.sleep(0.5)  # Reduzido de 1 para 0.5
+
+        # Limpar conteúdo existente e escrever texto
+        try:
+            text_area.send_keys(Keys.CONTROL + "a")
+            time.sleep(0.3)  # Reduzido de 0.5 para 0.3
+            text_area.send_keys(Keys.DELETE)
+            time.sleep(0.3)  # Reduzido de 0.5 para 0.3
+            text_area.send_keys(text)
+            log(f"✅ Texto inserido: {text[:50]}...")
+        except Exception as e:
+            log(f"⚠️ Falha ao inserir texto normalmente: {e}")
+            log("🔄 Tentando com JavaScript...")
+            drv.execute_script(
+                "arguments[0].innerHTML = arguments[1];", text_area, text
+            )
+            drv.execute_script(
+                "arguments[0].textContent = arguments[1];", text_area, text
+            )
 
         if DEBUG_MODE:
-            log("⏳ Aguardando 3 segundos para você ver o texto...")
-            time.sleep(3)
+            log("⏳ Texto inserido, aguardando para verificação...")
+            time.sleep(2)  # Reduzido de 3 para 2
 
         log("🎯 Procurando botão 'Publicar'...")
         publish_selectors = [
-            "//button[contains(.,'Publicar')]",
-            "//button[contains(.,'Post')]",
+            # Por texto em diferentes idiomas
+            "//button[contains(text(),'Post') and not(contains(text(),'postpone'))]",
+            "//button[contains(text(),'Publicar')]",
+            "//button[contains(text(),'Publier')]",
+            # Por data attributes
             "[data-test-id='share-actions-publish-button']",
+            "[data-test-id='post-button']",
+            "button[data-test-id*='publish']",
+            # Por aria-label
+            "button[aria-label*='Post']",
+            "button[aria-label*='Publicar']",
+            # Por classes
+            ".share-actions__primary-action",
+            ".artdeco-button--primary[type='submit']",
+            # Seletores mais específicos
+            "button.share-actions__primary-action",
+            "button[data-tracking-control-name*='publish']",
+            # Fallback genérico
+            "button[type='submit']",
         ]
 
-        publish_button = None
-        for selector in publish_selectors:
-            try:
-                if selector.startswith("//"):
-                    publish_button = drv.find_element(By.XPATH, selector)
-                else:
-                    publish_button = drv.find_element(By.CSS_SELECTOR, selector)
-                log(f"✅ Botão publicar encontrado!")
-                break
-            except:
-                continue
+        # Usar função auxiliar para encontrar botão publicar - timeout reduzido
+        publish_button = wait_for_element(
+            drv, publish_selectors, timeout=5, method="mixed"
+        )
 
         if not publish_button:
+            if DEBUG_MODE:
+                log("📸 Tirando screenshot dos botões para debug...")
+                try:
+                    drv.save_screenshot("/tmp/linkedin_buttons_debug.png")
+                    log(
+                        "📷 Screenshot dos botões salvo em /tmp/linkedin_buttons_debug.png"
+                    )
+                except:
+                    pass
             raise Exception("Botão 'Publicar' não encontrado")
 
+        # Verificar se botão está habilitado
+        if not publish_button.is_enabled():
+            log("⚠️ Botão publicar está desabilitado, aguardando...")
+            time.sleep(2)  # Reduzido de 3 para 2
+
+            if not publish_button.is_enabled():
+                log(
+                    "❌ Botão ainda desabilitado. Verificando se texto foi inserido corretamente..."
+                )
+                if DEBUG_MODE:
+                    try:
+                        input("🔍 Pressione ENTER após verificar o texto na tela...")
+                    except EOFError:
+                        log("⚠️ Entrada não disponível no Docker, continuando...")
+
         log("🚀 Clicando em 'Publicar'...")
-        publish_button.click()
-        time.sleep(5)
+        if not safe_click(drv, publish_button, "botão publicar"):
+            raise Exception("Falha ao clicar no botão publicar")
+
+        time.sleep(3)  # Reduzido de 5 para 3
+
+        # Verificar se foi publicado com sucesso
+        log("✅ Comando de publicação enviado!")
+
+        if DEBUG_MODE:
+            log("🔍 Aguardando para verificar se foi publicado...")
+            time.sleep(2)  # Reduzido de 3 para 2
+
+            # Verificar se voltou ao feed
+            try:
+                current_url = drv.current_url
+                if "feed" in current_url and "share" not in current_url:
+                    log("✅ Voltou ao feed - publicação provavelmente bem-sucedida!")
+                else:
+                    log(f"⚠️ URL atual: {current_url}")
+                    log("🔍 Verifique manualmente se foi publicado")
+            except:
+                log("⚠️ Não foi possível verificar URL final")
 
         log("✅ Post publicado com sucesso!")
 
     except Exception as e:
         log(f"❌ Erro durante publicação: {e}")
+
         if DEBUG_MODE:
-            log("🔍 Aguardando para você inspecionar a página...")
-            input("⏸️ Pressione ENTER para continuar...")
+            log("🔍 Erro detectado - mantendo navegador aberto para inspeção...")
+            log("💡 Dicas para debug:")
+            log("   1. Verifique se a página carregou completamente")
+            log("   2. Verifique se não há pop-ups ou notificações bloqueando")
+            log("   3. Verifique se o idioma da interface mudou")
+            log("   4. Verifique se há atualizações na interface do LinkedIn")
+
+            try:
+                current_url = drv.current_url
+                log(f"📍 URL atual: {current_url}")
+                page_title = drv.title
+                log(f"📋 Título da página: {page_title}")
+            except:
+                log("⚠️ Não foi possível obter informações da página (sessão perdida)")
+
+            try:
+                input("⏸️ Pressione ENTER para continuar após inspeção...")
+            except EOFError:
+                log(
+                    "⚠️ Entrada não disponível no Docker, continuando automaticamente..."
+                )
         raise
 
 
@@ -297,7 +572,10 @@ if __name__ == "__main__":
         log(f"💥 Erro geral: {e}")
         if DEBUG_MODE:
             log("🔍 Mantendo navegador aberto para debug...")
-            input("⏸️ Pressione ENTER para fechar...")
+            try:
+                input("⏸️ Pressione ENTER para fechar...")
+            except EOFError:
+                log("⚠️ Entrada não disponível no Docker, fechando automaticamente...")
     finally:
         log("🔚 Fechando navegador...")
         driver.quit()
