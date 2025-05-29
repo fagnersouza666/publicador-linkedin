@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
-Publicador Automático LinkedIn - Versão Profissional
-Funciona tanto localmente quanto no Docker
+Publicador Automático LinkedIn - Versão Enterprise
+Funciona tanto localmente quanto no Docker com observabilidade completa
 """
 import os
 import time
 import uuid
 import logging
+import csv
+import json
+import requests
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from logging.handlers import RotatingFileHandler
 
 from dotenv import load_dotenv
@@ -23,6 +26,155 @@ from selenium.common.exceptions import (
     WebDriverException,
     InvalidSessionIdException,
 )
+
+
+# === Configurações de Observabilidade ===
+class ObservabilityManager:
+    """Gerenciador de observabilidade com logs CSV e alertas"""
+
+    def __init__(self, log_dir: str):
+        self.log_dir = log_dir
+        self.csv_log_file = os.path.join(log_dir, "linkedin_audit.csv")
+        self.ensure_log_directory()
+        self.ensure_csv_headers()
+
+    def ensure_log_directory(self) -> None:
+        """Garante que o diretório de logs existe"""
+        os.makedirs(self.log_dir, exist_ok=True)
+
+    def ensure_csv_headers(self) -> None:
+        """Garante que o arquivo CSV tem cabeçalhos"""
+        if not os.path.exists(self.csv_log_file):
+            with open(self.csv_log_file, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    [
+                        "timestamp",
+                        "execution_id",
+                        "action",
+                        "success",
+                        "post_text",
+                        "current_url",
+                        "error_type",
+                        "error_msg",
+                        "screenshot_path",
+                        "duration_ms",
+                    ]
+                )
+
+    def log_csv_event(
+        self,
+        execution_id: str,
+        action: str,
+        success: bool,
+        post_text: str = "",
+        current_url: str = "",
+        error_type: str = "",
+        error_msg: str = "",
+        screenshot_path: str = "",
+        duration_ms: int = 0,
+    ) -> None:
+        """Registra evento no log CSV para auditoria"""
+        try:
+            with open(self.csv_log_file, "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    [
+                        datetime.now().isoformat(),
+                        execution_id,
+                        action,
+                        success,
+                        post_text[:100] + "..." if len(post_text) > 100 else post_text,
+                        current_url,
+                        error_type,
+                        error_msg[:200] + "..." if len(error_msg) > 200 else error_msg,
+                        screenshot_path,
+                        duration_ms,
+                    ]
+                )
+        except Exception as e:
+            logger.error(f"❌ Erro ao escrever log CSV: {e}")
+
+    def send_telegram_alert(self, message: str) -> bool:
+        """Envia alerta para Telegram"""
+        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+        if not token or not chat_id:
+            logger.warning(
+                "⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID)"
+            )
+            return False
+
+        try:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": f"🚨 LinkedIn Bot Alert\n\n{message}",
+                "parse_mode": "Markdown",
+            }
+
+            response = requests.post(url, json=payload, timeout=10)
+            if response.status_code == 200:
+                logger.info("✅ Alerta Telegram enviado com sucesso")
+                return True
+            else:
+                logger.error(
+                    f"❌ Falha Telegram: {response.status_code} - {response.text}"
+                )
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao enviar Telegram: {e}")
+            return False
+
+    def send_discord_alert(self, message: str) -> bool:
+        """Envia alerta para Discord"""
+        webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+
+        if not webhook_url:
+            logger.warning("⚠️ Discord não configurado (DISCORD_WEBHOOK_URL)")
+            return False
+
+        try:
+            payload = {
+                "content": f"🚨 **LinkedIn Bot Alert**\n\n{message}",
+                "username": "LinkedIn Bot",
+            }
+
+            response = requests.post(webhook_url, json=payload, timeout=10)
+            if response.status_code == 204:
+                logger.info("✅ Alerta Discord enviado com sucesso")
+                return True
+            else:
+                logger.error(
+                    f"❌ Falha Discord: {response.status_code} - {response.text}"
+                )
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao enviar Discord: {e}")
+            return False
+
+    def send_alert(
+        self, error_type: str, error_msg: str, url: str = "", screenshot: str = ""
+    ) -> None:
+        """Envia alertas para todos os canais configurados"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        message = f"""
+**Erro**: {error_type}
+**Mensagem**: {error_msg}
+**URL**: {url}
+**Screenshot**: {screenshot}
+**Timestamp**: {timestamp}
+        """.strip()
+
+        # Tentar Telegram
+        self.send_telegram_alert(message)
+
+        # Tentar Discord
+        self.send_discord_alert(message)
 
 
 # === Configuração de Logging ===
@@ -83,13 +235,17 @@ DOCKER_MODE = (
 # Configurar logging
 logger = setup_logging()
 
+# Configurar observabilidade
+log_dir = "/logs" if DOCKER_MODE else "logs"
+observability = ObservabilityManager(log_dir)
+
 if DOCKER_MODE:
     logger.info("🐳 Executando no Docker com Selenium Grid...")
 else:
     logger.info("💻 Executando localmente...")
 
 
-def save_screenshot_on_error(driver: webdriver.Remote, error_msg: str) -> None:
+def save_screenshot_on_error(driver: webdriver.Remote, error_msg: str) -> str:
     """Salva screenshot em caso de erro para debug"""
     try:
         log_dir = "/logs" if DOCKER_MODE else "logs"
@@ -103,8 +259,11 @@ def save_screenshot_on_error(driver: webdriver.Remote, error_msg: str) -> None:
         logger.error(f"📄 Página atual: {driver.current_url}")
         logger.error(f"🔍 Título: {driver.title}")
 
+        return screenshot_path
+
     except Exception as e:
         logger.error(f"❌ Falha ao salvar screenshot: {e}")
+        return ""
 
 
 def wait_for_element_smart(
@@ -290,8 +449,9 @@ def get_driver() -> webdriver.Remote:
             return webdriver.Chrome(options=opts)
 
 
-def login(driver: webdriver.Remote) -> None:
-    """Login no LinkedIn com validação robusta"""
+def login(driver: webdriver.Remote, execution_id: str) -> None:
+    """Login no LinkedIn com validação robusta e observabilidade"""
+    start_time = time.time()
     logger.info("🔑 Fazendo login no LinkedIn...")
 
     try:
@@ -316,36 +476,162 @@ def login(driver: webdriver.Remote) -> None:
         wait.until(lambda driver: "login" not in driver.current_url.lower())
 
         current_url = driver.current_url
+        duration_ms = int((time.time() - start_time) * 1000)
+
         if "challenge" in current_url:
-            logger.error("🚨 ATENÇÃO: LinkedIn está pedindo verificação adicional!")
-            save_screenshot_on_error(driver, "Verificação adicional necessária")
-            raise Exception("Verificação adicional necessária")
+            error_msg = "LinkedIn está pedindo verificação adicional"
+            logger.error(f"🚨 ATENÇÃO: {error_msg}")
+            screenshot_path = save_screenshot_on_error(driver, error_msg)
+
+            # Log CSV
+            observability.log_csv_event(
+                execution_id,
+                "login",
+                False,
+                "",
+                current_url,
+                "VerificationRequired",
+                error_msg,
+                screenshot_path,
+                duration_ms,
+            )
+
+            # Enviar alerta
+            observability.send_alert(
+                "Verificação Adicional", error_msg, current_url, screenshot_path
+            )
+
+            raise Exception(error_msg)
+
         elif "feed" in current_url:
             logger.info("✅ Login realizado com sucesso")
+
+            # Log CSV de sucesso
+            observability.log_csv_event(
+                execution_id, "login", True, "", current_url, "", "", "", duration_ms
+            )
+
         else:
             logger.warning(f"⚠️ URL inesperada após login: {current_url}")
             if "linkedin.com" in current_url and "login" not in current_url:
                 logger.info("✅ Login aparenta ter sido bem-sucedido")
+
+                # Log CSV de sucesso com warning
+                observability.log_csv_event(
+                    execution_id,
+                    "login",
+                    True,
+                    "",
+                    current_url,
+                    "UnexpectedURL",
+                    f"URL inesperada: {current_url}",
+                    "",
+                    duration_ms,
+                )
             else:
-                save_screenshot_on_error(driver, "Falha no login")
-                raise Exception("Falha no login")
+                error_msg = "Falha no login"
+                screenshot_path = save_screenshot_on_error(driver, error_msg)
+
+                # Log CSV de falha
+                observability.log_csv_event(
+                    execution_id,
+                    "login",
+                    False,
+                    "",
+                    current_url,
+                    "LoginFailed",
+                    error_msg,
+                    screenshot_path,
+                    duration_ms,
+                )
+
+                # Enviar alerta
+                observability.send_alert(
+                    "Falha no Login", error_msg, current_url, screenshot_path
+                )
+
+                raise Exception(error_msg)
 
     except TimeoutException as e:
-        logger.error(f"⏱️ Timeout durante login: {e}")
-        save_screenshot_on_error(driver, "Timeout no login")
+        duration_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Timeout durante login: {e}"
+        logger.error(f"⏱️ {error_msg}")
+        screenshot_path = save_screenshot_on_error(driver, error_msg)
+
+        # Log CSV
+        observability.log_csv_event(
+            execution_id,
+            "login",
+            False,
+            "",
+            driver.current_url,
+            "TimeoutException",
+            str(e),
+            screenshot_path,
+            duration_ms,
+        )
+
+        # Enviar alerta
+        observability.send_alert(
+            "Timeout no Login", str(e), driver.current_url, screenshot_path
+        )
+
         raise
     except NoSuchElementException as e:
-        logger.error(f"🚫 Elemento de login não encontrado: {e}")
-        save_screenshot_on_error(driver, "Elemento não encontrado")
+        duration_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Elemento de login não encontrado: {e}"
+        logger.error(f"🚫 {error_msg}")
+        screenshot_path = save_screenshot_on_error(driver, error_msg)
+
+        # Log CSV
+        observability.log_csv_event(
+            execution_id,
+            "login",
+            False,
+            "",
+            driver.current_url,
+            "NoSuchElementException",
+            str(e),
+            screenshot_path,
+            duration_ms,
+        )
+
+        # Enviar alerta
+        observability.send_alert(
+            "Elemento Não Encontrado", str(e), driver.current_url, screenshot_path
+        )
+
         raise
     except WebDriverException as e:
-        logger.error(f"❌ Erro do WebDriver durante login: {e}")
-        save_screenshot_on_error(driver, "Erro WebDriver")
+        duration_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Erro do WebDriver durante login: {e}"
+        logger.error(f"❌ {error_msg}")
+        screenshot_path = save_screenshot_on_error(driver, error_msg)
+
+        # Log CSV
+        observability.log_csv_event(
+            execution_id,
+            "login",
+            False,
+            "",
+            driver.current_url,
+            "WebDriverException",
+            str(e),
+            screenshot_path,
+            duration_ms,
+        )
+
+        # Enviar alerta
+        observability.send_alert(
+            "Erro WebDriver", str(e), driver.current_url, screenshot_path
+        )
+
         raise
 
 
-def publish_post(driver: webdriver.Remote, text: str) -> None:
-    """Publica o post com seletores robustos e validação completa"""
+def publish_post(driver: webdriver.Remote, text: str, execution_id: str) -> None:
+    """Publica o post com seletores robustos, validação completa e observabilidade"""
+    start_time = time.time()
     logger.info("📝 Iniciando processo de publicação...")
 
     try:
@@ -418,15 +704,58 @@ def publish_post(driver: webdriver.Remote, text: str) -> None:
             )
 
             if not post_button:
-                save_screenshot_on_error(driver, "Botão começar post não encontrado")
-                raise NoSuchElementException(
-                    "Botão 'Começar um post' não encontrado com nenhum seletor"
+                error_msg = "Botão 'Começar um post' não encontrado com nenhum seletor"
+                screenshot_path = save_screenshot_on_error(driver, error_msg)
+                duration_ms = int((time.time() - start_time) * 1000)
+
+                # Log CSV
+                observability.log_csv_event(
+                    execution_id,
+                    "publish_post",
+                    False,
+                    text,
+                    driver.current_url,
+                    "NoSuchElementException",
+                    error_msg,
+                    screenshot_path,
+                    duration_ms,
                 )
+
+                # Enviar alerta
+                observability.send_alert(
+                    "Elemento Não Encontrado",
+                    error_msg,
+                    driver.current_url,
+                    screenshot_path,
+                )
+
+                raise NoSuchElementException(error_msg)
 
         logger.info("👆 Clicando no botão para começar post...")
         if not safe_click(driver, post_button, "botão começar post"):
-            save_screenshot_on_error(driver, "Falha ao clicar botão começar post")
-            raise WebDriverException("Falha ao clicar no botão de começar post")
+            error_msg = "Falha ao clicar no botão de começar post"
+            screenshot_path = save_screenshot_on_error(driver, error_msg)
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log CSV
+            observability.log_csv_event(
+                execution_id,
+                "publish_post",
+                False,
+                text,
+                driver.current_url,
+                "WebDriverException",
+                error_msg,
+                screenshot_path,
+                duration_ms,
+            )
+
+            # Enviar alerta
+            observability.send_alert(
+                "Erro ao Clicar", error_msg, driver.current_url, screenshot_path
+            )
+
+            raise WebDriverException(error_msg)
 
         # Aguardar modal de criação de post aparecer
         wait.until(
@@ -458,8 +787,32 @@ def publish_post(driver: webdriver.Remote, text: str) -> None:
         )
 
         if not text_area:
-            save_screenshot_on_error(driver, "Área de texto não encontrada")
-            raise NoSuchElementException("Área de texto não encontrada")
+            error_msg = "Área de texto não encontrada"
+            screenshot_path = save_screenshot_on_error(driver, error_msg)
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log CSV
+            observability.log_csv_event(
+                execution_id,
+                "publish_post",
+                False,
+                text,
+                driver.current_url,
+                "NoSuchElementException",
+                error_msg,
+                screenshot_path,
+                duration_ms,
+            )
+
+            # Enviar alerta
+            observability.send_alert(
+                "Área de Texto Não Encontrada",
+                error_msg,
+                driver.current_url,
+                screenshot_path,
+            )
+
+            raise NoSuchElementException(error_msg)
 
         logger.info("✍️ Escrevendo o texto do post...")
 
@@ -516,16 +869,61 @@ def publish_post(driver: webdriver.Remote, text: str) -> None:
         )
 
         if not publish_button:
-            save_screenshot_on_error(driver, "Botão publicar não encontrado")
-            raise NoSuchElementException("Botão 'Publicar' não encontrado")
+            error_msg = "Botão 'Publicar' não encontrado"
+            screenshot_path = save_screenshot_on_error(driver, error_msg)
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log CSV
+            observability.log_csv_event(
+                execution_id,
+                "publish_post",
+                False,
+                text,
+                driver.current_url,
+                "NoSuchElementException",
+                error_msg,
+                screenshot_path,
+                duration_ms,
+            )
+
+            # Enviar alerta
+            observability.send_alert(
+                "Botão Publicar Não Encontrado",
+                error_msg,
+                driver.current_url,
+                screenshot_path,
+            )
+
+            raise NoSuchElementException(error_msg)
 
         # Verificar se botão está habilitado
         wait.until(lambda d: publish_button.is_enabled())
 
         logger.info("🚀 Clicando em 'Publicar'...")
         if not safe_click(driver, publish_button, "botão publicar"):
-            save_screenshot_on_error(driver, "Falha ao clicar botão publicar")
-            raise WebDriverException("Falha ao clicar no botão publicar")
+            error_msg = "Falha ao clicar no botão publicar"
+            screenshot_path = save_screenshot_on_error(driver, error_msg)
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log CSV
+            observability.log_csv_event(
+                execution_id,
+                "publish_post",
+                False,
+                text,
+                driver.current_url,
+                "WebDriverException",
+                error_msg,
+                screenshot_path,
+                duration_ms,
+            )
+
+            # Enviar alerta
+            observability.send_alert(
+                "Erro ao Publicar", error_msg, driver.current_url, screenshot_path
+            )
+
+            raise WebDriverException(error_msg)
 
         # Aguardar confirmação de publicação
         try:
@@ -538,42 +936,188 @@ def publish_post(driver: webdriver.Remote, text: str) -> None:
                 )
             )
             logger.info("✅ Post publicado com sucesso!")
+
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log CSV de sucesso
+            observability.log_csv_event(
+                execution_id,
+                "publish_post",
+                True,
+                text,
+                driver.current_url,
+                "",
+                "",
+                "",
+                duration_ms,
+            )
+
         except TimeoutException:
             logger.warning("⚠️ Timeout aguardando confirmação, mas comando foi enviado")
             logger.info("✅ Post provavelmente publicado com sucesso!")
 
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log CSV com warning
+            observability.log_csv_event(
+                execution_id,
+                "publish_post",
+                True,
+                text,
+                driver.current_url,
+                "TimeoutConfirmation",
+                "Timeout na confirmação mas comando enviado",
+                "",
+                duration_ms,
+            )
+
     except TimeoutException as e:
-        logger.error(f"⏱️ Timeout durante publicação: {e}")
-        save_screenshot_on_error(driver, "Timeout na publicação")
+        duration_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Timeout durante publicação: {e}"
+        logger.error(f"⏱️ {error_msg}")
+        screenshot_path = save_screenshot_on_error(driver, error_msg)
+
+        # Log CSV
+        observability.log_csv_event(
+            execution_id,
+            "publish_post",
+            False,
+            text,
+            driver.current_url,
+            "TimeoutException",
+            str(e),
+            screenshot_path,
+            duration_ms,
+        )
+
+        # Enviar alerta
+        observability.send_alert(
+            "Timeout na Publicação", str(e), driver.current_url, screenshot_path
+        )
+
         raise
     except NoSuchElementException as e:
-        logger.error(f"🚫 Elemento não encontrado durante publicação: {e}")
-        save_screenshot_on_error(driver, "Elemento não encontrado")
+        duration_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Elemento não encontrado durante publicação: {e}"
+        logger.error(f"🚫 {error_msg}")
+        screenshot_path = save_screenshot_on_error(driver, error_msg)
+
+        # Log CSV
+        observability.log_csv_event(
+            execution_id,
+            "publish_post",
+            False,
+            text,
+            driver.current_url,
+            "NoSuchElementException",
+            str(e),
+            screenshot_path,
+            duration_ms,
+        )
+
+        # Enviar alerta
+        observability.send_alert(
+            "Elemento Não Encontrado", str(e), driver.current_url, screenshot_path
+        )
+
         raise
     except WebDriverException as e:
-        logger.error(f"❌ Erro WebDriver durante publicação: {e}")
-        save_screenshot_on_error(driver, "Erro WebDriver")
+        duration_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Erro WebDriver durante publicação: {e}"
+        logger.error(f"❌ {error_msg}")
+        screenshot_path = save_screenshot_on_error(driver, error_msg)
+
+        # Log CSV
+        observability.log_csv_event(
+            execution_id,
+            "publish_post",
+            False,
+            text,
+            driver.current_url,
+            "WebDriverException",
+            str(e),
+            screenshot_path,
+            duration_ms,
+        )
+
+        # Enviar alerta
+        observability.send_alert(
+            "Erro WebDriver", str(e), driver.current_url, screenshot_path
+        )
+
         raise
 
 
 if __name__ == "__main__":
-    logger.info("🚀 Iniciando automatizador LinkedIn no Docker...")
+    execution_id = str(uuid.uuid4())
+    start_time = time.time()
+    logger.info(f"🚀 Iniciando automatizador LinkedIn [ID: {execution_id}]")
 
     driver = None
     try:
+        # Log CSV de início
+        observability.log_csv_event(
+            execution_id, "start", True, TEXT or "", "", "", "", "", 0
+        )
+
         driver = get_driver()
         logger.info("✅ Driver iniciado com sucesso")
 
         if EMAIL and PWD and EMAIL != "seu_email@exemplo.com":
-            login(driver)
-            # publish_post(driver, TEXT)
+            login(driver, execution_id)
+            publish_post(driver, TEXT, execution_id)
+
+            # Log CSV de sucesso total
+            total_duration = int((time.time() - start_time) * 1000)
+            observability.log_csv_event(
+                execution_id,
+                "complete",
+                True,
+                TEXT,
+                driver.current_url,
+                "",
+                "",
+                "",
+                total_duration,
+            )
         else:
             logger.info("⚠️ Credenciais não configuradas - executando apenas teste")
             driver.get("https://www.linkedin.com")
             logger.info(f"✅ Página carregada: {driver.title}")
 
+            # Log CSV de teste
+            observability.log_csv_event(
+                execution_id, "test", True, "", driver.current_url, "", "", "", 0
+            )
+
     except Exception as e:
-        logger.error(f"❌ Erro geral: {e}")
+        total_duration = int((time.time() - start_time) * 1000)
+        error_msg = f"Erro geral: {e}"
+        logger.error(f"❌ {error_msg}")
+
+        current_url = ""
+        if driver:
+            try:
+                current_url = driver.current_url
+            except:
+                pass
+
+        # Log CSV de erro geral
+        observability.log_csv_event(
+            execution_id,
+            "error",
+            False,
+            TEXT or "",
+            current_url,
+            type(e).__name__,
+            str(e),
+            "",
+            total_duration,
+        )
+
+        # Enviar alerta de erro geral
+        observability.send_alert("Erro Geral", str(e), current_url)
+
     finally:
         if driver:
             driver.quit()

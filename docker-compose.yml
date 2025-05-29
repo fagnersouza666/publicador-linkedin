@@ -11,6 +11,11 @@ services:
     image: publicador-linkedin:latest
     container_name: linkedin-publisher
 
+    # === Volumes para Observabilidade ===
+    volumes:
+      - /var/log/linkedin:/logs:rw
+      - linkedin-cache:/home/seluser/.cache
+
     # Configurações de segurança
     user: "${UID:-1000}:${GID:-1000}" # Usar UID/GID do host
     read_only: true # Sistema de arquivos somente leitura
@@ -37,7 +42,6 @@ services:
     tmpfs:
       - /tmp:rw,size=100M
       - /home/seluser/tmp:rw,size=50M
-      - /home/seluser/.cache:rw,size=50M
 
     # Variáveis de ambiente
     environment:
@@ -73,3 +77,8 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
+
+# === Volumes ===
+volumes:
+  linkedin-cache:
+    driver: local
