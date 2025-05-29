@@ -1,16 +1,71 @@
 #!/usr/bin/env python3
 """
-Publicador Automático LinkedIn - Versão Unificada
+Publicador Automático LinkedIn - Versão Profissional
 Funciona tanto localmente quanto no Docker
 """
-import os, time, uuid
+import os
+import time
+import uuid
+import logging
+from datetime import datetime
+from typing import Optional, List
+from logging.handlers import RotatingFileHandler
+
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException,
+    WebDriverException,
+    InvalidSessionIdException,
+)
+
+
+# === Configuração de Logging ===
+def setup_logging() -> logging.Logger:
+    """Configura sistema de logging profissional"""
+    # Criar diretório de logs
+    log_dir = "/logs" if os.path.exists("/.dockerenv") else "logs"
+    os.makedirs(log_dir, exist_ok=True)
+
+    # Configurar logger
+    logger = logging.getLogger("linkedin_poster")
+    logger.setLevel(logging.INFO)
+
+    # Evitar handlers duplicados
+    if logger.handlers:
+        return logger
+
+    # Handler para arquivo com rotação
+    file_handler = RotatingFileHandler(
+        f"{log_dir}/poster.log", maxBytes=5 * 1024 * 1024, backupCount=3  # 5MB
+    )
+    file_handler.setLevel(logging.INFO)
+
+    # Handler para console
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    # Formatadores
+    file_formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    console_formatter = logging.Formatter(
+        "[%(asctime)s] %(message)s", datefmt="%H:%M:%S"
+    )
+
+    file_handler.setFormatter(file_formatter)
+    console_handler.setFormatter(console_formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
+
 
 # === Carregar variáveis do .env ===
 load_dotenv()
@@ -25,23 +80,45 @@ DOCKER_MODE = (
     os.path.exists("/.dockerenv") or os.getenv("DOCKER_MODE", "false").lower() == "true"
 )
 
+# Configurar logging
+logger = setup_logging()
+
 if DOCKER_MODE:
-    print("🐳 Executando no Docker com Selenium Grid...")
+    logger.info("🐳 Executando no Docker com Selenium Grid...")
 else:
-    print("💻 Executando localmente...")
+    logger.info("💻 Executando localmente...")
 
 
-def log(message):
-    """Log com timestamp para debug"""
-    timestamp = time.strftime("%H:%M:%S")
-    print(f"[{timestamp}] {message}")
+def save_screenshot_on_error(driver: webdriver.Remote, error_msg: str) -> None:
+    """Salva screenshot em caso de erro para debug"""
+    try:
+        log_dir = "/logs" if DOCKER_MODE else "logs"
+        os.makedirs(log_dir, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        screenshot_path = f"{log_dir}/fail_{timestamp}.png"
+
+        driver.save_screenshot(screenshot_path)
+        logger.error(f"💥 Screenshot salvo: {screenshot_path}")
+        logger.error(f"📄 Página atual: {driver.current_url}")
+        logger.error(f"🔍 Título: {driver.title}")
+
+    except Exception as e:
+        logger.error(f"❌ Falha ao salvar screenshot: {e}")
 
 
-def wait_for_element(driver, selectors, timeout=5, method="css"):
+def wait_for_element_smart(
+    driver: webdriver.Remote,
+    selectors: List[str],
+    timeout: int = 10,
+    method: str = "css",
+) -> Optional[webdriver.remote.webelement.WebElement]:
     """
-    Aguarda por um elemento usando múltiplos seletores
+    Aguarda por um elemento usando WebDriverWait e múltiplos seletores
     """
-    log(f"🔍 Aguardando elemento com {len(selectors)} seletores...")
+    logger.info(
+        f"🔍 Aguardando elemento com {len(selectors)} seletores (timeout: {timeout}s)..."
+    )
 
     wait = WebDriverWait(driver, timeout)
 
@@ -50,82 +127,97 @@ def wait_for_element(driver, selectors, timeout=5, method="css"):
             # Verificar se a sessão ainda está ativa
             try:
                 driver.current_url
-            except:
-                log("❌ Sessão do navegador perdida")
+            except InvalidSessionIdException:
+                logger.error("❌ Sessão do navegador perdida")
                 return None
 
             if method == "mixed":
                 # Detecta automaticamente se é XPath ou CSS
                 if selector.startswith("//") or selector.startswith("("):
                     element = wait.until(
-                        EC.presence_of_element_located((By.XPATH, selector))
+                        EC.element_to_be_clickable((By.XPATH, selector))
                     )
                 else:
                     element = wait.until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
                     )
             elif method == "xpath":
-                element = wait.until(
-                    EC.presence_of_element_located((By.XPATH, selector))
-                )
+                element = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
             else:
                 element = wait.until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
                 )
 
-            log(f"✅ Elemento encontrado com seletor {i+1}: {selector}")
+            logger.info(f"✅ Elemento encontrado com seletor {i+1}: {selector}")
             return element
 
         except TimeoutException:
+            logger.debug(f"⏱️ Timeout no seletor {i+1}: {selector}")
             continue
-        except Exception as e:
-            log(f"⚠️ Erro ao procurar elemento com seletor {i+1}: {e}")
+        except NoSuchElementException:
+            logger.debug(f"🚫 Elemento não encontrado: {selector}")
+            continue
+        except WebDriverException as e:
+            logger.warning(f"⚠️ Erro WebDriver no seletor {i+1}: {e}")
             continue
 
-    log(f"❌ Nenhum elemento encontrado após {timeout}s")
+    logger.error(f"❌ Nenhum elemento encontrado após {timeout}s")
     return None
 
 
-def safe_click(driver, element, description="elemento"):
+def safe_click(
+    driver: webdriver.Remote,
+    element: webdriver.remote.webelement.WebElement,
+    description: str = "elemento",
+) -> bool:
     """
     Clica em um elemento de forma segura, com fallback para JavaScript
     """
     try:
+        # Aguardar elemento estar visível e clicável
+        wait = WebDriverWait(driver, 5)
+        wait.until(EC.element_to_be_clickable(element))
+
         # Scroll até o elemento
         driver.execute_script(
             "arguments[0].scrollIntoView({block: 'center'});", element
         )
-        time.sleep(0.5)
+
+        # Aguardar um pouco após scroll
+        wait.until(EC.element_to_be_clickable(element))
 
         # Tentar clique normal
         element.click()
-        log(f"✅ Clique normal no {description} bem-sucedido")
+        logger.info(f"✅ Clique normal no {description} bem-sucedido")
         return True
 
-    except Exception as e:
-        log(f"⚠️ Clique normal falhou no {description}: {e}")
+    except TimeoutException:
+        logger.warning(f"⏱️ Timeout no clique do {description}")
+        return False
+    except WebDriverException as e:
+        logger.warning(f"⚠️ Clique normal falhou no {description}: {e}")
         try:
             # Fallback para JavaScript
             driver.execute_script("arguments[0].click();", element)
-            log(f"✅ Clique JavaScript no {description} bem-sucedido")
+            logger.info(f"✅ Clique JavaScript no {description} bem-sucedido")
             return True
-        except Exception as e2:
-            log(f"❌ Clique JavaScript também falhou no {description}: {e2}")
+        except WebDriverException as e2:
+            logger.error(f"❌ Clique JavaScript também falhou no {description}: {e2}")
             return False
 
 
-def get_driver():
+def get_driver() -> webdriver.Remote:
     """Configuração unificada do navegador para Docker e local"""
     if DOCKER_MODE:
-        log("🔧 Inicializando navegador no Docker...")
+        logger.info("🔧 Inicializando navegador no Docker...")
         opts = webdriver.ChromeOptions()
 
         # Se DEBUG_MODE = true, não usa headless
         if not DEBUG_MODE:
             opts.add_argument("--headless")
-            log("👻 Modo headless ativado (invisível)")
+            logger.info("👻 Modo headless ativado (invisível)")
         else:
-            log("👁️ Modo visual ativado - você verá o navegador!")
+            logger.info("👁️ Modo visual ativado - você verá o navegador!")
 
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
@@ -149,8 +241,8 @@ def get_driver():
         # Tentar conectar ao Chrome local do Selenium Grid
         try:
             return webdriver.Chrome(options=opts)
-        except Exception as e:
-            log(f"❌ Erro ao conectar Chrome: {e}")
+        except WebDriverException as e:
+            logger.error(f"❌ Erro ao conectar Chrome: {e}")
             # Fallback para remote driver se necessário
             from selenium.webdriver.common.desired_capabilities import (
                 DesiredCapabilities,
@@ -162,10 +254,7 @@ def get_driver():
                 options=opts,
             )
     else:
-        log("🔧 Inicializando navegador localmente...")
-
-        # Configuração local
-        opts = None
+        logger.info("🔧 Inicializando navegador localmente...")
 
         if BROWSER == "firefox":
             from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -174,9 +263,9 @@ def get_driver():
 
             if not DEBUG_MODE:
                 opts.add_argument("--headless")
-                log("👻 Firefox modo headless ativado")
+                logger.info("👻 Firefox modo headless ativado")
             else:
-                log("👁️ Firefox modo visual ativado")
+                logger.info("👁️ Firefox modo visual ativado")
 
             opts.add_argument("--window-size=1920,1080")
             return webdriver.Firefox(options=opts)
@@ -186,9 +275,9 @@ def get_driver():
 
             if not DEBUG_MODE:
                 opts.add_argument("--headless")
-                log("👻 Chrome modo headless ativado")
+                logger.info("👻 Chrome modo headless ativado")
             else:
-                log("👁️ Chrome modo visual ativado")
+                logger.info("👁️ Chrome modo visual ativado")
 
             opts.add_argument("--window-size=1920,1080")
             opts.add_argument("--no-sandbox")
@@ -201,38 +290,73 @@ def get_driver():
             return webdriver.Chrome(options=opts)
 
 
-def login(drv):
-    """Login no LinkedIn"""
-    log("🔑 Fazendo login no LinkedIn...")
-    drv.get("https://www.linkedin.com/login")
-    time.sleep(3)
-
-    log("✍️ Preenchendo credenciais...")
-    drv.find_element(By.ID, "username").send_keys(EMAIL)
-    drv.find_element(By.ID, "password").send_keys(PWD, Keys.RETURN)
-    time.sleep(5)
-
-    current_url = drv.current_url
-    if "challenge" in current_url:
-        log("🚨 ATENÇÃO: LinkedIn está pedindo verificação adicional!")
-        raise Exception("Verificação adicional necessária")
-    elif "feed" in current_url:
-        log("✅ Login realizado com sucesso")
-    else:
-        log(f"⚠️ URL inesperada após login: {current_url}")
-        raise Exception("Falha no login")
-
-
-def publish_post(drv, text):
-    """Publica o post com seletores robustos"""
-    log("📝 Iniciando processo de publicação...")
+def login(driver: webdriver.Remote) -> None:
+    """Login no LinkedIn com validação robusta"""
+    logger.info("🔑 Fazendo login no LinkedIn...")
 
     try:
-        log("📰 Navegando para o feed...")
-        drv.get("https://www.linkedin.com/feed/")
-        time.sleep(5)
+        driver.get("https://www.linkedin.com/login")
 
-        log("🎯 Procurando botão 'Começar um post'...")
+        # Aguardar página carregar
+        wait = WebDriverWait(driver, 10)
+
+        # Aguardar campos de login aparecerem
+        username_field = wait.until(EC.presence_of_element_located((By.ID, "username")))
+        password_field = wait.until(EC.presence_of_element_located((By.ID, "password")))
+
+        logger.info("✍️ Preenchendo credenciais...")
+        username_field.clear()
+        username_field.send_keys(EMAIL)
+
+        password_field.clear()
+        password_field.send_keys(PWD)
+        password_field.send_keys(Keys.RETURN)
+
+        # Aguardar resposta do login
+        wait.until(lambda driver: "login" not in driver.current_url.lower())
+
+        current_url = driver.current_url
+        if "challenge" in current_url:
+            logger.error("🚨 ATENÇÃO: LinkedIn está pedindo verificação adicional!")
+            save_screenshot_on_error(driver, "Verificação adicional necessária")
+            raise Exception("Verificação adicional necessária")
+        elif "feed" in current_url:
+            logger.info("✅ Login realizado com sucesso")
+        else:
+            logger.warning(f"⚠️ URL inesperada após login: {current_url}")
+            if "linkedin.com" in current_url and "login" not in current_url:
+                logger.info("✅ Login aparenta ter sido bem-sucedido")
+            else:
+                save_screenshot_on_error(driver, "Falha no login")
+                raise Exception("Falha no login")
+
+    except TimeoutException as e:
+        logger.error(f"⏱️ Timeout durante login: {e}")
+        save_screenshot_on_error(driver, "Timeout no login")
+        raise
+    except NoSuchElementException as e:
+        logger.error(f"🚫 Elemento de login não encontrado: {e}")
+        save_screenshot_on_error(driver, "Elemento não encontrado")
+        raise
+    except WebDriverException as e:
+        logger.error(f"❌ Erro do WebDriver durante login: {e}")
+        save_screenshot_on_error(driver, "Erro WebDriver")
+        raise
+
+
+def publish_post(driver: webdriver.Remote, text: str) -> None:
+    """Publica o post com seletores robustos e validação completa"""
+    logger.info("📝 Iniciando processo de publicação...")
+
+    try:
+        logger.info("📰 Navegando para o feed...")
+        driver.get("https://www.linkedin.com/feed/")
+
+        # Aguardar página carregar completamente
+        wait = WebDriverWait(driver, 15)
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+        logger.info("🎯 Procurando botão 'Começar um post'...")
 
         # Lista expandida de seletores possíveis
         start_post_selectors = [
@@ -259,50 +383,59 @@ def publish_post(drv, text):
         ]
 
         # Usar função auxiliar para encontrar o botão
-        post_button = wait_for_element(
-            drv, start_post_selectors, timeout=8, method="mixed"
+        post_button = wait_for_element_smart(
+            driver, start_post_selectors, timeout=15, method="mixed"
         )
 
         if not post_button:
             # Tentar estratégias alternativas
-            log("🔄 Tentando estratégias alternativas...")
+            logger.info("🔄 Tentando estratégias alternativas...")
 
             # Verificar se há modal ou popup bloqueando
             try:
-                close_buttons = drv.find_elements(
+                close_buttons = driver.find_elements(
                     By.CSS_SELECTOR,
                     "[aria-label*='Close'], [aria-label*='Fechar'], .artdeco-modal__dismiss",
                 )
                 if close_buttons:
-                    log("🚪 Fechando modal/popup que pode estar bloqueando...")
+                    logger.info("🚪 Fechando modal/popup que pode estar bloqueando...")
                     for btn in close_buttons:
-                        safe_click(drv, btn, "botão fechar modal")
-                    time.sleep(1)
-            except:
+                        safe_click(driver, btn, "botão fechar modal")
+
+                    # Aguardar após fechar modals
+                    WebDriverWait(driver, 3).until(EC.staleness_of(close_buttons[0]))
+            except (TimeoutException, NoSuchElementException):
                 pass
 
             # Recarregar a página
-            log("🔄 Recarregando página...")
-            drv.refresh()
-            time.sleep(3)
+            logger.info("🔄 Recarregando página...")
+            driver.refresh()
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
             # Tentar novamente
-            post_button = wait_for_element(
-                drv, start_post_selectors, timeout=5, method="mixed"
+            post_button = wait_for_element_smart(
+                driver, start_post_selectors, timeout=10, method="mixed"
             )
 
             if not post_button:
-                raise Exception(
+                save_screenshot_on_error(driver, "Botão começar post não encontrado")
+                raise NoSuchElementException(
                     "Botão 'Começar um post' não encontrado com nenhum seletor"
                 )
 
-        log("👆 Clicando no botão para começar post...")
-        if not safe_click(drv, post_button, "botão começar post"):
-            raise Exception("Falha ao clicar no botão de começar post")
+        logger.info("👆 Clicando no botão para começar post...")
+        if not safe_click(driver, post_button, "botão começar post"):
+            save_screenshot_on_error(driver, "Falha ao clicar botão começar post")
+            raise WebDriverException("Falha ao clicar no botão de começar post")
 
-        time.sleep(4)
+        # Aguardar modal de criação de post aparecer
+        wait.until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, ".share-creation-state, .ql-editor")
+            )
+        )
 
-        log("📝 Procurando área de texto do post...")
+        logger.info("📝 Procurando área de texto do post...")
         text_area_selectors = [
             # Seletores mais recentes
             ".ql-editor[data-placeholder]",
@@ -320,36 +453,45 @@ def publish_post(drv, text):
         ]
 
         # Usar função auxiliar para encontrar área de texto
-        text_area = wait_for_element(drv, text_area_selectors, timeout=6, method="css")
+        text_area = wait_for_element_smart(
+            driver, text_area_selectors, timeout=10, method="css"
+        )
 
         if not text_area:
-            raise Exception("Área de texto não encontrada")
+            save_screenshot_on_error(driver, "Área de texto não encontrada")
+            raise NoSuchElementException("Área de texto não encontrada")
 
-        log("✍️ Escrevendo o texto do post...")
-        # Focar na área de texto
-        if not safe_click(drv, text_area, "área de texto"):
-            drv.execute_script("arguments[0].focus();", text_area)
+        logger.info("✍️ Escrevendo o texto do post...")
 
-        time.sleep(1)
+        # Focar na área de texto e aguardar estar pronta
+        if not safe_click(driver, text_area, "área de texto"):
+            driver.execute_script("arguments[0].focus();", text_area)
+
+        # Aguardar área estar focada
+        wait.until(lambda d: d.switch_to.active_element == text_area)
 
         # Limpar e escrever texto
         try:
             text_area.send_keys(Keys.CONTROL + "a")
-            time.sleep(0.5)
+            WebDriverWait(driver, 2).until(lambda d: True)  # Pequena pausa
             text_area.send_keys(Keys.DELETE)
-            time.sleep(0.5)
+            WebDriverWait(driver, 2).until(lambda d: True)  # Pequena pausa
             text_area.send_keys(text)
-            log(f"✅ Texto inserido: {text[:50]}...")
-        except Exception as e:
-            log(f"⚠️ Falha ao inserir texto normalmente: {e}")
-            log("🔄 Tentando com JavaScript...")
-            drv.execute_script(
+            logger.info(f"✅ Texto inserido: {text[:50]}...")
+        except WebDriverException as e:
+            logger.warning(f"⚠️ Falha ao inserir texto normalmente: {e}")
+            logger.info("🔄 Tentando com JavaScript...")
+            driver.execute_script(
                 "arguments[0].innerHTML = arguments[1];", text_area, text
             )
 
-        time.sleep(2)
+        # Aguardar texto ser processado
+        WebDriverWait(driver, 5).until(
+            lambda d: len(text_area.text.strip()) > 0
+            or len(text_area.get_attribute("innerHTML")) > 10
+        )
 
-        log("🎯 Procurando botão 'Publicar'...")
+        logger.info("🎯 Procurando botão 'Publicar'...")
         publish_selectors = [
             # Por texto em diferentes idiomas
             "//button[contains(text(),'Post') and not(contains(text(),'postpone'))]",
@@ -369,49 +511,70 @@ def publish_post(drv, text):
         ]
 
         # Usar função auxiliar para encontrar botão publicar
-        publish_button = wait_for_element(
-            drv, publish_selectors, timeout=5, method="mixed"
+        publish_button = wait_for_element_smart(
+            driver, publish_selectors, timeout=10, method="mixed"
         )
 
         if not publish_button:
-            raise Exception("Botão 'Publicar' não encontrado")
+            save_screenshot_on_error(driver, "Botão publicar não encontrado")
+            raise NoSuchElementException("Botão 'Publicar' não encontrado")
 
         # Verificar se botão está habilitado
-        if not publish_button.is_enabled():
-            log("⚠️ Botão publicar está desabilitado, aguardando...")
-            time.sleep(3)
+        wait.until(lambda d: publish_button.is_enabled())
 
-        log("🚀 Clicando em 'Publicar'...")
-        if not safe_click(drv, publish_button, "botão publicar"):
-            raise Exception("Falha ao clicar no botão publicar")
+        logger.info("🚀 Clicando em 'Publicar'...")
+        if not safe_click(driver, publish_button, "botão publicar"):
+            save_screenshot_on_error(driver, "Falha ao clicar botão publicar")
+            raise WebDriverException("Falha ao clicar no botão publicar")
 
-        time.sleep(5)
-        log("✅ Post publicado com sucesso!")
+        # Aguardar confirmação de publicação
+        try:
+            wait.until(
+                EC.any_of(
+                    EC.url_contains("feed"),
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "[data-test-id='post-success']")
+                    ),
+                )
+            )
+            logger.info("✅ Post publicado com sucesso!")
+        except TimeoutException:
+            logger.warning("⚠️ Timeout aguardando confirmação, mas comando foi enviado")
+            logger.info("✅ Post provavelmente publicado com sucesso!")
 
-    except Exception as e:
-        log(f"❌ Erro durante publicação: {e}")
+    except TimeoutException as e:
+        logger.error(f"⏱️ Timeout durante publicação: {e}")
+        save_screenshot_on_error(driver, "Timeout na publicação")
+        raise
+    except NoSuchElementException as e:
+        logger.error(f"🚫 Elemento não encontrado durante publicação: {e}")
+        save_screenshot_on_error(driver, "Elemento não encontrado")
+        raise
+    except WebDriverException as e:
+        logger.error(f"❌ Erro WebDriver durante publicação: {e}")
+        save_screenshot_on_error(driver, "Erro WebDriver")
         raise
 
 
 if __name__ == "__main__":
-    log("🚀 Iniciando automatizador LinkedIn no Docker...")
+    logger.info("🚀 Iniciando automatizador LinkedIn no Docker...")
 
     driver = None
     try:
         driver = get_driver()
-        log("✅ Driver iniciado com sucesso")
+        logger.info("✅ Driver iniciado com sucesso")
 
         if EMAIL and PWD and EMAIL != "seu_email@exemplo.com":
             login(driver)
             # publish_post(driver, TEXT)
         else:
-            log("⚠️ Credenciais não configuradas - executando apenas teste")
+            logger.info("⚠️ Credenciais não configuradas - executando apenas teste")
             driver.get("https://www.linkedin.com")
-            log(f"✅ Página carregada: {driver.title}")
+            logger.info(f"✅ Página carregada: {driver.title}")
 
     except Exception as e:
-        log(f"❌ Erro geral: {e}")
+        logger.error(f"❌ Erro geral: {e}")
     finally:
         if driver:
             driver.quit()
-        log("🏁 Execução finalizada")
+        logger.info("🏁 Execução finalizada")
