@@ -2,7 +2,7 @@
 
 Automatiza a publicação de posts no LinkedIn usando **pipeline inteligente**: **Telegram → GPT-4o-mini → Revisão → Aprovação → LinkedIn**.
 
-**Versão 2.6.2** - Sistema de Revisão Pré-Publicação com Aprovação Manual Otimizado
+**Versão 2.6.3** - Sistema de Revisão Pré-Publicação Otimizado e Estrutura Limpa
 
 ## ✨ Características Principais
 
@@ -585,4 +585,4 @@ MIT License - Veja LICENSE para detalhes.
 
 ---
 
-**Versão Atual**: 2.6.2 | **Última Atualização**: 2024-12-20 | **Sistema**: Revisão Pré-Publicação com Aprovação Manual 
+**Versão Atual**: 2.6.3 | **Última Atualização**: 2024-12-20 | **Sistema**: Revisão Pré-Publicação com Aprovação Manual 

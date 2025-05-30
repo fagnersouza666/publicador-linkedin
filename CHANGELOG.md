@@ -4,6 +4,44 @@ Registro detalhado de todas as mudanças significativas no projeto.
 
 ---
 
+## [2.6.3] - 2024-12-20 23:30:00
+
+### 🧹 LIMPEZA DE ARQUIVOS DESNECESSÁRIOS
+
+**Arquivos Removidos:**
+- **REMOVIDO**: `__pycache__/` - Cache Python regenerado automaticamente
+- **REMOVIDO**: `.pytest_cache/` - Cache pytest regenerado automaticamente
+- **REMOVIDO**: `iniciar.sh` - Duplicado do `iniciar_telegram_bot.sh`
+- **REMOVIDO**: `iniciar_debug.sh` - Substituído por `debug_local.py`
+- **REMOVIDO**: `test_pipeline.py` - Redundante com `test_review_system.py` e `test_simple_review.py`
+- **REMOVIDO**: Arquivos `*.pyc` residuais
+
+**Benefícios da Limpeza:**
+- ✅ **Estrutura simplificada**: Apenas arquivos essenciais
+- ✅ **Sem duplicatas**: Eliminação de scripts redundantes
+- ✅ **Manutenção facilitada**: Menos arquivos para gerenciar
+- ✅ **Repositório limpo**: Sem caches desnecessários
+- ✅ **Foco nos essenciais**: Scripts principais bem definidos
+
+**Arquivos Mantidos (Essenciais):**
+- `app/` - Código principal da aplicação
+- `posts/` - Sistema de filas de produção
+- `iniciar_telegram_bot.sh` - Script principal de execução
+- `debug_local.py` - Debug visual local
+- `monitor_logs.sh` / `setup_logs.sh` - Monitoramento
+- `test_review_system.py` / `test_simple_review.py` - Testes essenciais
+- `docker-compose.yml` / `Dockerfile.selenium` - Containerização
+- `README.md` / `CHANGELOG.md` - Documentação
+- `.env` / `.env.example` - Configurações
+
+**Resultado da Limpeza:**
+- **Arquivos reduzidos**: Estrutura mais enxuta e organizada
+- **Scripts únicos**: Um script principal por funcionalidade
+- **Testes consolidados**: Cobertura completa com menos arquivos
+- **Projeto production-ready**: Apenas arquivos necessários para deploy
+
+---
+
 ## [2.6.2] - 2024-12-20 23:15:00
 
 ### 📚 DOCUMENTAÇÃO OTIMIZADA E VALIDAÇÃO FINAL

@@ -117,3 +117,9 @@ screenshots/
 
 # Docker
 .dockerignore 
+# Cache files
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.cache/
