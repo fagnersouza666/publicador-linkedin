@@ -1,84 +1,78 @@
 version: '3.8'
 
 services:
-  publicador-linkedin:
+  selenium:
+    image: selenium/standalone-firefox:4.21.0-20240517
+    container_name: linkedin-selenium
+    ports:
+      - "4444:4444"
+      - "7900:7900" # VNC para debug visual
+    volumes:
+      - /dev/shm:/dev/shm:rw
+      - /var/log/linkedin:/logs:rw
+    environment:
+      - SE_VNC_NO_PASSWORD=1
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_SESSION_TIMEOUT=300
+    restart: unless-stopped
+    networks:
+      - linkedin-net
+
+  linkedin-poster:
     build:
       context: .
       dockerfile: Dockerfile.selenium
-      labels:
-        - "maintainer=publicador-linkedin"
-        - "description=Automatizador LinkedIn otimizado"
-    image: publicador-linkedin:latest
-    container_name: linkedin-publisher
-
-    # === Volumes para Observabilidade ===
+    container_name: linkedin-poster
+    depends_on:
+      - selenium
     volumes:
       - /var/log/linkedin:/logs:rw
-      - linkedin-cache:/home/seluser/.cache
+      - ./posts:/app/posts:rw
+      - linkedin-cache:/app/.cache
+    environment:
+      # LinkedIn
+      - LINKEDIN_EMAIL=${LINKEDIN_EMAIL}
+      - LINKEDIN_PASSWORD=${LINKEDIN_PASSWORD}
 
-    # Configurações de segurança
-    user: "${UID:-1000}:${GID:-1000}" # Usar UID/GID do host
-    read_only: true # Sistema de arquivos somente leitura
-    cap_drop:
-      - ALL # Remover todas as capabilities
-    cap_add:
-      - CHOWN # Apenas as necessárias
-      - SETGID
-      - SETUID
+      # OpenAI
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+      # Telegram Bot
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_AUTHORIZED_USERS=${TELEGRAM_AUTHORIZED_USERS}
+
+      # Alertas Telegram
+      - TELEGRAM_ALERT_BOT_TOKEN=${TELEGRAM_ALERT_BOT_TOKEN}
+      - TELEGRAM_ALERT_CHAT_ID=${TELEGRAM_ALERT_CHAT_ID}
+
+      # Alertas Discord
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+
+      # Docker mode
+      - DOCKER_MODE=true
+      - SELENIUM_HUB_URL=http://selenium:4444/wd/hub
+    restart: unless-stopped
+    networks:
+      - linkedin-net
     security_opt:
       - no-new-privileges:true
-
-    # Configurações de recursos
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 512M
-          cpus: '0.5'
-
-    # Volumes temporários (tmpfs para performance)
+    read_only: false
     tmpfs:
-      - /tmp:rw,size=100M
-      - /home/seluser/tmp:rw,size=50M
+      - /tmp:noexec,nosuid,size=100m
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
 
-    # Variáveis de ambiente
-    environment:
-      - PYTHONUNBUFFERED=1
-      - PYTHONDONTWRITEBYTECODE=1
-      - DEBUG_MODE=false
-
-    # Health check
-    healthcheck:
-      test: [ "CMD", "python3", "-c", "import selenium; print('OK')" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-    # Configurações de rede
-    networks:
-      - publicador-net
-
-    # Restart policy
-    restart: unless-stopped
-
-    # Logs configurados
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+volumes:
+  linkedin-cache:
+    driver: local
 
 networks:
-  publicador-net:
+  linkedin-net:
     driver: bridge
     ipam:
       config:
         - subnet: 172.20.0.0/16
-
-# === Volumes ===
-volumes:
-  linkedin-cache:
-    driver: local

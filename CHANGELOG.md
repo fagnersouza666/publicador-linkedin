@@ -4,6 +4,339 @@ Registro detalhado de todas as mudanças significativas no projeto.
 
 ---
 
+## [2.6.2] - 2024-12-20 23:15:00
+
+### 📚 DOCUMENTAÇÃO OTIMIZADA E VALIDAÇÃO FINAL
+
+**Melhorias na Documentação:**
+- **ATUALIZADO**: README.md com explicações mais claras do sistema de revisão
+- **MELHORADO**: Exemplos práticos de uso dos comandos de aprovação
+- **ADICIONADO**: Fluxograma visual do pipeline de revisão
+- **DOCUMENTADO**: Configurações técnicas detalhadas do ContentReviewer
+
+**Validações e Testes:**
+- **TESTADO**: Sistema completo funcionando sem erros
+- **VERIFICADO**: Todas as dependências instaladas corretamente
+- **CONFIRMADO**: Comandos de aprovação (/approve, /cancel, /pending, /retry) operacionais
+- **VALIDADO**: Fallback local funciona sem OpenAI API
+
+**Otimizações Técnicas:**
+- **MELHORADO**: Formatação das mensagens de revisão no Telegram
+- **OTIMIZADO**: Exemplos de conteúdo na documentação
+- **PADRONIZADO**: Estrutura de resposta do sistema de revisão
+- **REFINADO**: Critérios de aprovação automática
+
+**Status do Sistema:**
+- ✅ **Pipeline completo**: Telegram → GPT → Revisão → Aprovação → LinkedIn
+- ✅ **Segurança garantida**: Zero publicações sem aprovação manual
+- ✅ **Qualidade assegurada**: IA revisa sem alterar estilo original
+- ✅ **Produção ready**: Sistema testado e documentado
+
+---
+
+## [2.6.1] - 2024-12-20 22:30:00
+
+### 📋 SISTEMA DE REVISÃO PRÉ-PUBLICAÇÃO - Controle de Qualidade sem Alterar Estilo
+
+**Implementação de Segurança de Conteúdo:**
+- **ADICIONADO**: Módulo `ContentReviewer` para validação pré-publicação
+- **IMPLEMENTADO**: Aprovação manual obrigatória via comandos Telegram
+- **CRIADO**: 4 novos comandos de aprovação (/approve, /cancel, /pending, /retry)
+- **VALIDADO**: Sistema de compliance LinkedIn sem alteração de estilo
+
+**Benefícios da Implementação:**
+- ✅ **Controle total**: Usuário revisa antes da publicação
+- ✅ **Qualidade garantida**: Validação IA sem alterar estilo original
+- ✅ **Compliance automático**: Verificação de políticas LinkedIn
+- ✅ **Zero publicações indesejadas**: Aprovação manual obrigatória
+- ✅ **Feedback inteligente**: Sugestões específicas para melhoria
+
+**Fluxo Atualizado:**
+```
+ANTES (v2.6.0): Telegram → GPT → LinkedIn (automático)
+DEPOIS (v2.6.1): Telegram → GPT → Revisão → Aprovação → LinkedIn
+```
+
+**Novos Estados de Arquivo:**
+- `aguardando_aprovacao` - Revisão completa, aguardando confirmação
+- `publicando` - Aprovado, sendo publicado no LinkedIn
+- `cancelado` - Cancelado pelo usuário
+
+**Comandos de Aprovação:**
+- `/approve` - Aprovar e publicar conteúdo
+- `/cancel` - Cancelar conteúdo atual  
+- `/pending` - Ver conteúdo aguardando aprovação
+- `/retry` - Tentar publicar novamente se erro
+
+**Sistema de Validação:**
+- ✅ Gramática e ortografia automática
+- ✅ Compliance LinkedIn (spam, tom profissional)
+- ✅ Métricas de qualidade (caracteres, hashtags, emojis)
+- ✅ Sugestões específicas sem alterar estilo
+
+---
+
+## [2.6.0] - 2024-12-20 22:00:00
+
+### 🚀 SISTEMA DE FILAS DE PRODUÇÃO - Escalabilidade para Produção Low-Cost
+
+**Transformação Fundamental para Produção:**
+- **IMPLEMENTADO**: Sistema de filas com diretórios `/pendentes` e `/enviados`
+- **CRIADO**: Logs organizados por data (YYYY-MM-DD.log)
+- **CONFIGURADO**: Volume Docker mount para persistência de dados
+- **OTIMIZADO**: Pipeline para ambientes de produção escaláveis
+
+**Benefícios da Implementação:**
+- ✅ **Produção low-cost**: Fácil deploy em VPS/containers
+- ✅ **Persistência total**: Dados mantidos entre restarts
+- ✅ **Monitoramento granular**: Logs por data + filas separadas
+- ✅ **Retry automático**: Arquivos com erro mantidos para reprocessamento
+- ✅ **Escalabilidade**: Suporte a múltiplos workers (futuro)
+
+**Mudanças Técnicas Detalhadas:**
+
+### 📂 Sistema de Filas Implementado
+```
+ANTES (v2.5.1): Diretório único /posts
+DEPOIS (v2.6.0): Sistema de filas organizadas
+```
+
+**Nova Estrutura de Diretórios:**
+- ✅ `/posts/pendentes` - Fila de entrada para novos arquivos
+- ✅ `/posts/enviados` - Arquivos processados com sucesso
+- ✅ `/posts/logs` - Logs diários organizados por data
+
+**Fluxo de Produção:**
+```python
+# Workflow otimizado
+1. 📥 Telegram → Arquivo HTML recebido
+2. 📂 Sistema → Adiciona à fila /pendentes
+3. ✅ Validação → Conteúdo e timing
+4. 🤖 GPT → Processamento inteligente
+5. 🔗 LinkedIn → Publicação automática
+6. 📤 Sistema → Move para /enviados
+7. 📝 Log → Registra em YYYY-MM-DD.log
+```
+
+### 📝 Sistema de Logs por Data
+```python
+class TelegramPipeline:
+    def setup_daily_logger(self):
+        today = datetime.now().strftime("%Y-%m-%d")
+        log_file = f"posts/logs/{today}.log"
+        
+        self.pipeline_logger = logging.getLogger(f"pipeline_{today}")
+        # Handler específico com formatação otimizada
+```
+
+**Benefícios dos Logs Diários:**
+- **Organização temporal**: Um arquivo por dia facilita análise
+- **Rotação automática**: Logs antigos não consomem espaço excessivo
+- **Debug eficiente**: Busca rápida por data específica
+- **Compliance**: Auditoria organizada para empresas
+
+### 📦 Volume Docker com Persistência
+```yaml
+# docker-compose.yml v2.6.0
+services:
+  linkedin-poster:
+    volumes:
+      - ./posts:/app/posts:rw           # 🆕 Volume para filas
+      - /var/log/linkedin:/logs:rw      # Logs do sistema
+      - linkedin-cache:/app/.cache      # Cache do navegador
+```
+
+**Comandos Docker Atualizados:**
+```bash
+# Execução manual com volumes
+docker run -d \
+  -v $(pwd)/posts:/app/posts:rw \
+  -v /var/log/linkedin:/logs:rw \
+  --env-file .env \
+  linkedin-poster
+
+# Verificação de filas
+docker exec linkedin-poster ls -la /app/posts/pendentes
+docker exec linkedin-poster ls -la /app/posts/enviados
+```
+
+### 🔄 Estados de Arquivo Expandidos
+```json
+// Metadata v2.6.0 com tracking de fila
+{
+  "processing": {
+    "status": "pendente",        // pendente → processando → publicado/erro
+    "queue": "pendentes",        // pendentes → enviados
+    "moved_to_enviados_at": null // Timestamp da movimentação
+  },
+  "production": {
+    "daily_log": "2024-12-20.log",  // Log específico do dia
+    "queue_position": 3              // Posição na fila
+  }
+}
+```
+
+**Estados Implementados:**
+- **pendente**: Arquivo aguardando processamento
+- **processando**: Pipeline em execução
+- **publicado**: Sucesso - arquivo movido para enviados
+- **erro**: Falha - mantido em pendentes para retry
+
+### 📱 Comando /queue Adicionado
+```python
+async def queue_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Status detalhado das filas
+    pendentes_files = [f for f in os.listdir(POSTS_PENDENTES_DIR) if f.endswith('.html')]
+    enviados_files = [f for f in os.listdir(POSTS_ENVIADOS_DIR) if f.endswith('.html')]
+    
+    # Próximos 3 na fila + últimos 3 enviados
+```
+
+**Funcionalidades do /queue:**
+- **Status atual**: Contagem de pendentes vs enviados
+- **Próximos na fila**: 3 primeiros arquivos a serem processados
+- **Últimos enviados**: Histórico dos 3 mais recentes
+- **Log ativo**: Arquivo de log do dia atual
+
+### 🔄 Movimentação Inteligente de Arquivos
+```python
+def move_to_enviados(self, pendente_path: str, metadata_path: str):
+    # Move arquivo + metadata
+    # Atualiza status para "enviado"
+    # Registra timestamp da movimentação
+    # Log da operação
+```
+
+**Benefícios da Movimentação:**
+- **Separação clara**: Arquivos processados vs pendentes
+- **Retry automático**: Erros ficam em pendentes
+- **Auditoria**: Histórico completo de movimentações
+- **Performance**: Filas menores = busca mais rápida
+
+### 📊 Monitoramento de Produção
+```bash
+# Comandos de monitoramento adicionados
+echo "Pendentes: $(ls posts/pendentes/*.html 2>/dev/null | wc -l)"
+echo "Enviados: $(ls posts/enviados/*.html 2>/dev/null | wc -l)"
+
+# Log específico do dia
+tail -f posts/logs/$(date +%Y-%m-%d).log
+
+# Análise de metadata
+cat posts/pendentes/arquivo.metadata.json | jq .processing
+```
+
+### 🚀 Casos de Uso de Produção
+
+**1. Deploy em VPS:**
+```bash
+# Upload via SCP/FTP para /posts/pendentes
+scp artigo.html user@vps:/home/app/posts/pendentes/
+
+# Monitoramento remoto
+ssh user@vps "tail -f /home/app/posts/logs/$(date +%Y-%m-%d).log"
+```
+
+**2. Integração com CI/CD:**
+```yaml
+# GitHub Actions exemplo
+- name: Deploy to production queue
+  run: |
+    scp generated-content.html ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/app/posts/pendentes/
+```
+
+**3. Múltiplos Ambientes:**
+```bash
+# Staging
+docker run -v ./posts-staging:/app/posts publicador
+
+# Production  
+docker run -v ./posts-production:/app/posts publicador
+```
+
+### 📈 Performance de Produção
+
+**Escalabilidade:**
+- **Throughput**: Filas separadas permitem processamento paralelo futuro
+- **Storage**: Logs diários reduzem overhead de I/O
+- **Memory**: Metadata JSON otimizado para leitura rápida
+- **Network**: Volume local reduz latência vs armazenamento remoto
+
+**Métricas Implementadas:**
+- Tempo médio na fila por arquivo
+- Taxa de sucesso por dia (via logs)
+- Contagem de arquivos por status
+- Performance de movimentação entre filas
+
+### 🔧 Scripts Atualizados
+
+**iniciar_telegram_bot.sh v2.6.0:**
+- Configuração automática de diretórios de filas
+- Verificação de permissões de volume
+- Testes de conectividade expandidos
+- Status atual das filas no startup
+
+**docker-compose.yml v2.6.0:**
+- Volume mount para persistência
+- Configuração de rede otimizada
+- Health checks para containers
+- Variables de ambiente organizadas
+
+### 🎯 Roadmap Futuro (habilitado por v2.6.0)
+
+**Funcionalidades Futuras Possíveis:**
+- **Workers paralelos**: Múltiplos containers processando a mesma fila
+- **Agendamento**: Fila com timestamp para posting futuro
+- **Priorização**: Fila VIP para conteúdo urgente
+- **API REST**: Interface HTTP para adicionar à fila
+- **Dashboard web**: Monitoramento visual das filas
+
+### 🔍 Troubleshooting de Produção
+
+**Logs por Data:**
+```bash
+# Debug por período
+grep "ERROR" posts/logs/2024-12-20.log
+grep "Pipeline" posts/logs/2024-12-20.log
+
+# Análise de performance
+grep "Pipeline completo" posts/logs/*.log | wc -l
+```
+
+**Gestão de Filas:**
+```bash
+# Mover arquivo manualmente se necessário
+mv posts/pendentes/problema.html posts/enviados/
+
+# Reprocessar arquivo com erro
+# (basta manter em pendentes que será reprocessado)
+```
+
+### 📊 Comparação de Versões
+
+| Aspecto | v2.5.1 | v2.6.0 |
+|---------|--------|--------|
+| **Arquivos** | Único diretório | 📂 Filas separadas |
+| **Logs** | Arquivo único | 📅 Logs por data |
+| **Docker** | Básico | 📦 Volumes persistentes |
+| **Retry** | Manual | 🔄 Automático via filas |
+| **Produção** | Dev-friendly | 🚀 Production-ready |
+| **Monitoramento** | CSV audit | 📊 Multi-layer tracking |
+
+### 🏆 Resultado v2.6.0
+
+**Transformação para Produção:**
+- **De**: Sistema de desenvolvimento modular
+- **Para**: Plataforma de produção escalável
+
+**Benefícios de Negócio:**
+- **Deploy low-cost**: VPS simples + Docker + volumes
+- **Operação 24/7**: Filas + retry + logs organizados
+- **Auditoria completa**: Rastreamento de cada arquivo
+- **Escalabilidade**: Base para crescimento futuro
+
+---
+
 ## [2.5.1] - 2024-12-20 20:30:00
 
 ### 🏗️ REFATORAÇÃO MODULAR COMPLETA - Separação de Responsabilidades

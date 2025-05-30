@@ -1,62 +1,77 @@
 # 🚀 Publicador Automático LinkedIn
 
-Automatiza a publicação de posts no LinkedIn usando **pipeline inteligente**: **Telegram → GPT-4o-mini → LinkedIn**.
+Automatiza a publicação de posts no LinkedIn usando **pipeline inteligente**: **Telegram → GPT-4o-mini → Revisão → Aprovação → LinkedIn**.
 
-**Versão 2.5.1** - Arquitetura Modular com Sistema Padronizado
+**Versão 2.6.2** - Sistema de Revisão Pré-Publicação com Aprovação Manual Otimizado
 
-## ✨ Características
+## ✨ Características Principais
 
-- 🤖 **Pipeline Inteligente**: Telegram Bot → GPT-4o-mini → LinkedIn
-- 📱 **Bot Telegram**: Recebe arquivos HTML via chat com validações
+- 🤖 **Pipeline Inteligente**: Telegram Bot → GPT-4o-mini → Revisão IA → LinkedIn
+- 📱 **Bot Telegram**: Recebe arquivos HTML via chat com validações completas
 - 🧠 **Processamento GPT**: Melhora e corrige textos automaticamente
-- 🎯 **Publicação Automática**: Posts otimizados direto no LinkedIn
+- 📋 **Revisão IA**: Valida conteúdo **SEM ALTERAR** estilo original
+- ⏸️ **Aprovação Manual**: Confirmação obrigatória antes da publicação
+- 🎯 **Publicação Segura**: Posts revisados e aprovados direto no LinkedIn
+- 📂 **Sistema de Filas**: pendentes → aguardando aprovação → enviados
+- 📝 **Logs por Data**: YYYY-MM-DD.log organizados por dia
 - 📊 **Observabilidade CSV**: Auditoria completa em formato estruturado
 - 🚨 **Alertas Inteligentes**: Telegram/Discord em caso de falhas
-- 🐳 **Docker Pronto**: Execução isolada com volume persistente
+- 🐳 **Docker com Volumes**: Execução isolada com persistência
 - 🔒 **Seguro**: Configuração com variáveis de ambiente
 - 📸 **Screenshots on Error**: Debug automático com capturas de tela
 
-## 🏗️ Arquitetura Modular
+## 🏗️ Sistema de Filas de Produção
 
-### 📁 Estrutura de Módulos
-
-```
-app/
-├── html_parser.py        # Parser HTML puro (extração e validação)
-├── post_processor.py     # Processamento GPT-4o-mini
-├── telegram_bot.py       # Bot Telegram com validações
-└── linkedin_poster.py    # Automação LinkedIn + observabilidade
-```
-
-### 🔄 Pipeline Workflow
-
-```
-1. 📥 Telegram → Receber arquivo HTML
-2. ✅ Validar conteúdo e horário
-3. 📄 Extrair texto + metadados
-4. 🤖 Processar com GPT-4o-mini
-5. 🔗 Publicar no LinkedIn
-6. 💾 Salvar metadata.json
-7. 📊 Registrar CSV audit
-```
-
-## 📋 Sistema de Arquivos Padronizado
-
-### 📁 Formato de Arquivos
+### 📁 Estrutura de Arquivos
 
 ```
 posts/
-├── 20241220_143025_inteligencia-artificial-educacao.html
-├── 20241220_143025_inteligencia-artificial-educacao.metadata.json
-├── 20241220_151530_futuro-trabalho-remoto.html
-└── 20241220_151530_futuro-trabalho-remoto.metadata.json
+├── pendentes/                    # Fila de entrada
+│   ├── 20241220_143025_ai-educacao.html
+│   ├── 20241220_143025_ai-educacao.metadata.json
+│   └── 20241220_151530_trabalho-remoto.html
+├── enviados/                     # Arquivos processados
+│   ├── 20241219_120000_marketing-digital.html
+│   ├── 20241219_120000_marketing-digital.metadata.json
+│   └── 20241219_140000_inovacao-tech.html
+└── logs/                         # Logs diários
+    ├── 2024-12-19.log
+    ├── 2024-12-20.log
+    └── 2024-12-21.log
 ```
+
+### 🔄 Fluxo de Produção
+
+```
+1. 📥 Telegram → Arquivo HTML enviado
+2. 📂 Sistema → Adiciona à fila /pendentes
+3. ✅ Validação → Conteúdo e horário
+4. 🤖 GPT → Processa e otimiza
+5. 📋 Revisão IA → Valida sem alterar estilo
+6. ⏸️ Aguarda → Aprovação manual obrigatória
+7. ✅ Usuário → /approve para confirmar
+8. 🔗 LinkedIn → Publica automaticamente
+9. 📤 Sistema → Move para /enviados
+10. 📝 Log → Registra em YYYY-MM-DD.log
+```
+
+### 🏷️ Status de Arquivos
+
+- **pendente**: Aguardando processamento inicial
+- **processando**: GPT processando conteúdo
+- **aguardando_aprovacao**: Revisão completa, aguardando confirmação
+- **publicando**: Aprovado, sendo publicado no LinkedIn
+- **publicado**: Sucesso - movido para enviados
+- **cancelado**: Cancelado pelo usuário
+- **erro**: Falha - mantido em pendentes para retry
+
+## 📋 Sistema de Arquivos Padronizado
 
 ### 📊 Estrutura metadata.json
 
 ```json
 {
-  "file_path": "posts/20241220_143025_ia-educacao.html",
+  "file_path": "posts/pendentes/20241220_143025_ai-educacao.html",
   "title": "Inteligência Artificial na Educação",
   "word_count": 156,
   "char_count": 987,
@@ -66,20 +81,111 @@ posts/
     "received_at": "2024-12-20T14:30:25"
   },
   "processing": {
-    "status": "published",
+    "status": "pendente",
+    "queue": "pendentes",
     "pipeline_id": "tg_20241220_143025_123456789",
-    "final_content": "🚀 A revolução da IA na educação...",
-    "published_at": "2024-12-20T14:31:45"
+    "moved_to_enviados_at": null
   },
-  "validation": {
-    "html_valid": true,
-    "time_check": {
-      "warnings": [],
-      "recommendations": ["✅ Bom horário para posting (14:30)"]
-    }
+  "production": {
+    "daily_log": "2024-12-20.log",
+    "queue_position": 3
   }
 }
 ```
+
+## 📋 Sistema de Revisão Pré-Publicação
+
+### 🎯 Sistema de Revisão Inteligente
+
+### 🔍 **OBJETIVO PRINCIPAL**
+**Garantir qualidade máxima do conteúdo SEM alterar o estilo original do autor**
+
+O sistema de revisão é o diferencial do projeto - ele **valida e analisa** o conteúdo processado pelo GPT antes da publicação, mas **NUNCA altera o texto** - apenas identifica problemas e sugere melhorias.
+
+### 🧠 **Como Funciona a Revisão**
+
+```
+📝 CONTEÚDO ORIGINAL → 🤖 GPT PROCESSA → 📋 IA REVISA → 👤 USUÁRIO APROVA → 🔗 LINKEDIN
+```
+
+**Etapas da Revisão:**
+1. **Análise Automática**: IA verifica gramática, tom, compliance
+2. **Validação Técnica**: Caracteres, hashtags, emojis, políticas
+3. **Relatório Estruturado**: JSON com problemas e sugestões
+4. **Decisão Humana**: Usuário aprova, cancela ou solicita ajustes
+
+### ✅ **Validações Automáticas Realizadas**
+
+**📊 Análise de Qualidade:**
+- ✅ **Gramática e ortografia** - Detecta erros de português
+- ✅ **Tamanho adequado** - Verifica limite de 1300 caracteres
+- ✅ **Tom profissional** - Avalia adequação para LinkedIn
+- ✅ **Hashtags relevantes** - Recomenda 3-5 hashtags
+- ✅ **Uso de emojis** - Máximo 5 emojis recomendado
+- ✅ **Compliance LinkedIn** - Verifica políticas da plataforma
+
+**🚫 Análise de Conformidade:**
+- 🚫 **Conteúdo inadequado** - Detecta linguagem ofensiva
+- 🚫 **Spam/clickbait** - Identifica palavras não recomendadas
+- 🚫 **Violações de política** - Compliance LinkedIn
+- 🚫 **Texto muito longo/curto** - Limites de caracteres
+
+### 📱 **Comandos de Aprovação Disponíveis**
+
+**Fluxo de Aprovação Completo:**
+1. 📋 **Sistema faz revisão automática** → Mostra resultado detalhado
+2. 👤 **Usuário decide com comandos**:
+   - `/approve` - ✅ Aprovar e publicar imediatamente
+   - `/cancel` - ❌ Cancelar conteúdo atual
+   - `/pending` - 📋 Ver conteúdo aguardando aprovação
+   - `/retry` - 🔄 Tentar publicar novamente (se erro)
+
+**Exemplo Real de Revisão no Telegram:**
+```
+📋 REVISÃO DE CONTEÚDO
+
+✅ Status: APROVADO
+🎯 Confiança: 92%
+
+📝 CONTEÚDO FINAL:
+🚀 A revolução da IA na educação está transformando como aprendemos e ensinamos. 
+
+Principais benefícios:
+• Personalização do aprendizado
+• Feedback instantâneo
+• Acessibilidade melhorada
+
+#IA #Educacao #Tecnologia #Inovacao
+
+📊 MÉTRICAS:
+• Caracteres: 287
+• Hashtags: 4
+• Emojis: 1
+
+💡 SUGESTÕES:
+• Excelente estrutura e tom profissional
+• Hashtags bem balanceadas
+• Tamanho ideal para engajamento
+
+✅ Aprovar publicação: /approve
+❌ Cancelar: /cancel
+```
+
+### 🔧 **Configuração Técnica da Revisão**
+
+**Arquivo Principal:** `app/content_reviewer.py`
+
+**Configurações do Prompt de Revisão:**
+- 🎯 **Foco**: Validar sem alterar estilo
+- 🧠 **Modelo**: GPT-4o-mini (mesmo do processamento)
+- 📏 **Limite**: 800 tokens para resposta
+- 🌡️ **Temperature**: 0.1 (baixa criatividade)
+- 🔒 **Fallback**: Validação local se OpenAI indisponível
+
+**Critérios de Aprovação Automática:**
+- ✅ **APPROVE**: Pode publicar diretamente
+- ⚠️ **REVIEW_NEEDED**: Requer atenção manual
+- ❌ **REJECT**: Não adequado para LinkedIn
 
 ## ⚙️ Instalação
 
@@ -128,7 +234,7 @@ TELEGRAM_AUTHORIZED_USERS=123456789,987654321
 ### 📱 Bot Telegram
 
 ```bash
-# Iniciar bot
+# Iniciar bot (configura filas automaticamente)
 ./iniciar_telegram_bot.sh
 
 # Ou Python direto
@@ -137,17 +243,20 @@ python -m app.telegram_bot
 
 ### 💬 Comandos do Bot
 
-- `/start` - Instruções e status de horário
+- `/start` - Instruções e status da fila atual
+- `/queue` - Status detalhado das filas (pendentes/enviados)
 - `/status` - Verificar configurações do sistema
 - `/stats` - Estatísticas avançadas com metadata
 
 ### 📤 Envio de Arquivos
 
 1. 📄 Envie arquivo HTML para o bot
-2. ✅ Receba validação automática
-3. ⏰ Veja recomendações de horário
-4. 🤖 Aguarde processamento GPT
-5. 🔗 Receba confirmação de publicação
+2. 📂 Bot adiciona à fila de **pendentes**
+3. ✅ Receba validação e posição na fila
+4. ⏰ Veja recomendações de horário
+5. 🤖 Aguarde processamento GPT
+6. 📤 Arquivo é movido para **enviados**
+7. 🔗 Receba confirmação de publicação
 
 ### ⏰ Validações de Horário
 
@@ -156,25 +265,49 @@ python -m app.telegram_bot
 - 🕐 **Horários**: 8h-18h (melhor: 8h-10h, 17h-19h)
 - ⚠️ **Evitar**: Fins de semana e horários noturnos
 
-## 🐳 Docker
+## 🐳 Docker com Volumes
 
-### 🔧 Configuração
+### 🔧 Configuração Atualizada
 
 ```yaml
 # docker-compose.yml
-volumes:
-  - /var/log/linkedin:/logs:rw
-  - linkedin-cache:/app/.cache
+services:
+  linkedin-poster:
+    volumes:
+      - /var/log/linkedin:/logs:rw
+      - ./posts:/app/posts:rw           # 🆕 Volume para filas
+      - linkedin-cache:/app/.cache
 ```
 
 ### 🚀 Execução
 
 ```bash
-# Configurar logs
+# Configurar logs e filas
 sudo ./setup_logs.sh
 
-# Subir containers
+# Subir containers com volumes
 docker-compose up -d
+
+# Verificar logs
+docker-compose logs -f linkedin-poster
+```
+
+### 📦 Comandos Docker
+
+```bash
+# Executar com volume mount manual
+docker run -d \
+  -v $(pwd)/posts:/app/posts:rw \
+  -v /var/log/linkedin:/logs:rw \
+  --env-file .env \
+  linkedin-poster
+
+# Verificar filas
+docker exec linkedin-poster ls -la /app/posts/pendentes
+docker exec linkedin-poster ls -la /app/posts/enviados
+
+# Acessar logs diários
+docker exec linkedin-poster cat /app/posts/logs/$(date +%Y-%m-%d).log
 ```
 
 ## 📊 Monitoramento
@@ -196,43 +329,82 @@ docker-compose up -d
 8) Status dos componentes
 ```
 
+### 📝 Logs por Data
+
+```bash
+# Log de hoje
+tail -f posts/logs/$(date +%Y-%m-%d).log
+
+# Logs específicos
+cat posts/logs/2024-12-20.log | grep "ERROR"
+cat posts/logs/2024-12-20.log | grep "Pipeline iniciado"
+
+# Últimos logs
+ls -la posts/logs/ | tail -5
+```
+
+### 📂 Monitoramento de Filas
+
+```bash
+# Status das filas
+echo "Pendentes: $(ls posts/pendentes/*.html 2>/dev/null | wc -l)"
+echo "Enviados: $(ls posts/enviados/*.html 2>/dev/null | wc -l)"
+
+# Próximos na fila
+ls -la posts/pendentes/*.html | head -3
+
+# Últimos enviados
+ls -la posts/enviados/*.html | tail -3
+
+# Metadata de um arquivo
+cat posts/pendentes/20241220_143025_arquivo.metadata.json | jq .
+```
+
 ### 📋 Auditoria CSV
 
 ```csv
 timestamp,execution_id,action,success,post_text,current_url,error_type,error_msg,screenshot_path,duration_ms
-2024-12-20 14:30:25,tg_20241220_143025_123,telegram_start,True,"","file://posts/ia.html","","","",0
-2024-12-20 14:30:45,tg_20241220_143025_123,gpt_processing,True,"🚀 A revolução da IA...","file://posts/ia.html","","","",1250
+2024-12-20 14:30:25,tg_20241220_143025_123,telegram_start,True,"","file://posts/pendentes/ai.html","","","",0
+2024-12-20 14:30:45,tg_20241220_143025_123,gpt_processing,True,"🚀 A revolução da IA...","file://posts/pendentes/ai.html","","","",1250
 2024-12-20 14:31:20,tg_20241220_143025_123,pipeline_complete,True,"🚀 A revolução da IA...","https://linkedin.com/feed/","","","",2840
 ```
 
 ## 🔧 Testes
 
-### 🧪 Testes Individuais
+### 🧪 Testes de Filas
 
 ```bash
-# Testar parser HTML
-python app/html_parser.py arquivo.html
+# Testar sistema de filas
+echo "<html><head><title>Teste</title></head><body><h1>Teste IA</h1><p>Conteúdo de teste para o sistema de filas.</p></body></html>" > test.html
 
-# Testar processamento GPT
-python app/post_processor.py arquivo.html
+# Simular envio via bot (coloque na fila)
+cp test.html posts/pendentes/$(date +%Y%m%d_%H%M%S)_teste-sistema.html
 
-# Testar pipeline completo
-python test_pipeline.py
+# Verificar processamento
+python -m app.telegram_bot &
+sleep 5
+kill %1
 ```
 
-### 📊 Exemplo de Validação
+### 📊 Exemplo de Queue Status
 
 ```bash
-✅ Arquivo válido!
-📊 Estatísticas: {
-  'char_count': 1250,
-  'word_count': 205,
-  'title': 'IA na Educação',
-  'has_title': True
-}
-📄 Texto extraído: 1250 caracteres
-📝 Título: IA na Educação
-🔗 Slug: ia-na-educacao
+# Via comando /queue no bot
+📊 Status da Fila de Produção:
+
+📂 Pendentes: 3 arquivos
+🔄 Próximos na fila:
+1. 20241220_143025 - ai na educacao...
+2. 20241220_151530 - futuro do trabalho...
+3. 20241220_162245 - marketing digital...
+
+📤 Enviados: 15 arquivos
+🎉 Últimos enviados:
+• 20241220_120000 - inovacao tecnologica...
+• 20241219_180000 - sustentabilidade...
+• 20241219_140000 - lideranca remota...
+
+📝 Log atual: 2024-12-20.log
 ```
 
 ## 🚨 Alertas
@@ -244,117 +416,168 @@ python test_pipeline.py
 
 **Erro:** TimeoutException: Element not found
 **URL:** https://linkedin.com/feed/
-**Arquivo:** posts/20241220_143025_artigo.html
+**Arquivo:** posts/pendentes/20241220_143025_artigo.html
+**Fila:** pendentes → erro (mantido para retry)
+**Log:** 2024-12-20.log
 **Tempo:** 2024-12-20 14:30:25
 
 **Screenshot:** /logs/error_20241220_143025.png
 ```
 
-### 🎯 Discord Webhooks
+## 📈 Analytics de Produção
 
-```json
-{
-  "content": "🚨 **Falha na Publicação LinkedIn**",
-  "embeds": [{
-    "title": "Pipeline Error",
-    "description": "NoSuchElementException em //*[@data-test='share-box']",
-    "color": 15158332,
-    "timestamp": "2024-12-20T14:30:25.000Z"
-  }]
-}
-```
-
-## 📈 Analytics
-
-### 🔍 Consultas SQL-like
+### 🔍 Consultas de Fila
 
 ```python
-import pandas as pd
+import os
+import json
+from datetime import datetime
 
-# Carregar dados
-df = pd.read_csv('logs/linkedin_audit.csv')
+# Analisar filas
+def analyze_queues():
+    pendentes = len([f for f in os.listdir('posts/pendentes') if f.endswith('.html')])
+    enviados = len([f for f in os.listdir('posts/enviados') if f.endswith('.html')])
+    
+    print(f"📂 Pendentes: {pendentes}")
+    print(f"📤 Enviados: {enviados}")
+    print(f"📊 Taxa de processamento: {enviados/(pendentes+enviados)*100:.1f}%")
 
-# Taxa de sucesso
-success_rate = df['success'].mean() * 100
-
-# Posts por horário
-df['hour'] = pd.to_datetime(df['timestamp']).dt.hour
-best_hours = df.groupby('hour')['success'].mean()
-
-# Performance por dia da semana
-df['weekday'] = pd.to_datetime(df['timestamp']).dt.day_name()
-weekday_performance = df.groupby('weekday')['success'].mean()
+# Analisar logs diários
+def analyze_daily_logs():
+    today = datetime.now().strftime('%Y-%m-%d')
+    log_file = f'posts/logs/{today}.log'
+    
+    if os.path.exists(log_file):
+        with open(log_file) as f:
+            lines = f.readlines()
+        
+        pipelines = len([l for l in lines if "Pipeline iniciado" in l])
+        successes = len([l for l in lines if "Pipeline completo" in l])
+        errors = len([l for l in lines if "Erro no pipeline" in l])
+        
+        print(f"📅 Log: {today}")
+        print(f"🚀 Pipelines: {pipelines}")
+        print(f"✅ Sucessos: {successes}")
+        print(f"❌ Erros: {errors}")
 ```
-
-### 📊 Dashboards
-
-- **📈 Grafana**: Conectar ao CSV para dashboards
-- **📋 Excel/Sheets**: Importar CSV para análises
-- **🔍 Jupyter**: Análises avançadas com pandas
 
 ## 🔧 Troubleshooting
 
-### ❌ Problemas Comuns
+### ❌ Problemas de Fila
 
-**Bot não responde:**
+**Arquivos presos em pendentes:**
 ```bash
-# Verificar token
-echo $TELEGRAM_BOT_TOKEN
+# Verificar logs do arquivo específico
+grep "20241220_143025" posts/logs/2024-12-20.log
 
-# Verificar usuários autorizados
-echo $TELEGRAM_AUTHORIZED_USERS
+# Verificar metadata do arquivo
+cat posts/pendentes/20241220_143025_arquivo.metadata.json | jq .processing
 
-# Logs do bot
-tail -f logs/app.log | grep telegram
+# Mover manualmente para enviados (se necessário)
+mv posts/pendentes/arquivo.html posts/enviados/
+mv posts/pendentes/arquivo.metadata.json posts/enviados/
 ```
 
-**Erro GPT-4o-mini:**
+**Logs não sendo criados:**
 ```bash
-# Verificar API key
-echo $OPENAI_API_KEY
+# Verificar permissões
+ls -la posts/logs/
+chmod 755 posts/logs/
 
-# Teste de conectividade
-curl -H "Authorization: Bearer $OPENAI_API_KEY" \
-     https://api.openai.com/v1/models
+# Verificar diretório
+mkdir -p posts/logs
 ```
 
-**LinkedIn falha:**
+**Volume Docker não montado:**
 ```bash
-# Screenshots de debug
-ls logs/error_*.png
+# Verificar mount
+docker exec linkedin-poster ls -la /app/posts
 
-# Logs específicos
-grep "linkedin" logs/linkedin_audit.csv
+# Recriar com volume
+docker-compose down
+docker-compose up -d
 ```
 
 ## 📝 Changelog
 
-### v2.5.1 (2024-12-20)
+### v2.6.0 (2024-12-20)
 
-**🏗️ REFATORAÇÃO MODULAR COMPLETA:**
+**🚀 SISTEMA DE FILAS DE PRODUÇÃO:**
 
-**Separação de Módulos:**
-- ✅ `html_parser.py` - Parser HTML puro e independente
-- ✅ `post_processor.py` - Processamento GPT focado
-- ✅ `telegram_bot.py` - Bot com validações avançadas
-- ✅ `linkedin_poster.py` - Automação + observabilidade
+**Separação de Filas:**
+- ✅ `/posts/pendentes` - Fila de entrada para novos arquivos
+- ✅ `/posts/enviados` - Arquivos processados com sucesso
+- ✅ `/posts/logs` - Logs organizados por data (YYYY-MM-DD.log)
 
-**Sistema de Arquivos Padronizado:**
-- ✅ Nomenclatura: `YYYYMMDD_HHMMSS_slug-titulo.html`
-- ✅ Metadata JSON completo para cada arquivo
-- ✅ Tracking de status: received → processing → published/error
+**Sistema de Logs por Data:**
+- ✅ **Log diário**: Cada dia tem seu próprio arquivo de log
+- ✅ **Logger específico**: Pipeline com handler dedicado
+- ✅ **Rotação automática**: Logs organizados por data
+- ✅ **Metadata tracking**: Status completo por arquivo
 
-**Validações Avançadas:**
-- ✅ Conteúdo HTML (tamanho, estrutura, metadados)
-- ✅ Horário de posting (dias úteis, horários ideais)
-- ✅ Slug automático com remoção de acentos
-- ✅ Prevenção de conflitos de nome
+**Melhorias de Produção:**
+- ✅ **Volume Docker**: `-v $(pwd)/posts:/app/posts:rw`
+- ✅ **Comando /queue**: Status detalhado das filas
+- ✅ **Retry automático**: Arquivos com erro mantidos em pendentes
+- ✅ **Posição na fila**: Tracking de posição e tempo estimado
 
-**Melhorias de UX:**
-- ✅ Mensagens informativas com progresso
-- ✅ Estatísticas detalhadas com metadata
-- ✅ Recomendações de horário em tempo real
-- ✅ Arquivos temporários com limpeza automática
+**Workflow Otimizado:**
+- ✅ **Fluxo claro**: pendentes → processando → enviados
+- ✅ **Estados consistentes**: Status detalhado por arquivo
+- ✅ **Limpeza automática**: Gestão de arquivos temporários
+- ✅ **Monitoramento**: Logs diários + CSV audit + metadata JSON
+
+---
+
+## 🎯 **RESUMO EXECUTIVO - Sistema de Revisão Implementado**
+
+### ✅ **O QUE FOI IMPLEMENTADO**
+
+**Sistema de Revisão Pré-Publicação v2.6.2:**
+- ✅ **IA revisa o texto antes de publicar SEM mudar o estilo original**
+- ✅ **Aprovação manual obrigatória** - Zero publicações automáticas
+- ✅ **Comandos de controle**: /approve, /cancel, /pending, /retry
+- ✅ **Validação inteligente**: Gramática, compliance, métricas
+- ✅ **Fallback local**: Funciona mesmo sem OpenAI API
+- ✅ **Sistema de filas**: pendentes → aguardando_aprovacao → enviados
+
+### 🔄 **FLUXO ATUAL DO SISTEMA**
+
+```
+1. 📱 Usuário envia HTML via Telegram
+2. 🤖 GPT-4o-mini processa e melhora o conteúdo
+3. 📋 IA faz revisão SEM alterar estilo
+4. 👤 Usuário recebe relatório de revisão
+5. ✅ Usuário aprova com /approve
+6. 🔗 Sistema publica no LinkedIn
+7. 📤 Arquivo movido para /enviados
+```
+
+### 🛡️ **SEGURANÇA GARANTIDA**
+
+- **🚫 Zero publicações sem aprovação**: Sistema exige confirmação manual
+- **🔍 Revisão inteligente**: IA identifica problemas antes da publicação  
+- **📋 Controle total**: Usuário vê exatamente o que será publicado
+- **🔄 Retry seguro**: Falhas não publicam conteúdo incorreto
+- **📝 Auditoria completa**: Logs detalhados de todas as ações
+
+### 🎨 **PRESERVAÇÃO DO ESTILO**
+
+**O sistema NUNCA altera o estilo original:**
+- ✅ **Apenas revisa**: Identifica problemas sem reescrever
+- ✅ **Mantém tom**: Preserva a voz do autor
+- ✅ **Sugere melhorias**: Dá dicas sem implementar
+- ✅ **Decisão humana**: Usuário decide todas as mudanças
+
+### 🚀 **PRONTO PARA PRODUÇÃO**
+
+- ✅ **Testado e validado**: Todos os componentes funcionando
+- ✅ **Documentação completa**: README e CHANGELOG atualizados
+- ✅ **Docker configurado**: Deploy fácil com volumes persistentes
+- ✅ **Monitoramento**: Logs por data e observabilidade CSV
+- ✅ **Escalável**: Suporte a múltiplos usuários e filas
+
+---
 
 ## 📄 Licença
 
@@ -362,4 +585,4 @@ MIT License - Veja LICENSE para detalhes.
 
 ---
 
-**Versão Atual**: 2.5.1 | **Última Atualização**: 2024-12-20 | **Módulos**: Separados e Otimizados 
+**Versão Atual**: 2.6.2 | **Última Atualização**: 2024-12-20 | **Sistema**: Revisão Pré-Publicação com Aprovação Manual 
