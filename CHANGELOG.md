@@ -4,6 +4,160 @@ Registro detalhado de todas as mudanças significativas no projeto.
 
 ---
 
+## [2.9.2] - 2025-05-31 🌐 **SUPORTE MÚLTIPLOS NAVEGADORES**
+
+### ✅ **Novidades Principais**
+- **🌟 Chromium como padrão**: Navegador recomendado, leve e estável
+- **🦊 Firefox suportado**: Alternativa robusta e confiável  
+- **🔍 Detecção automática**: Sistema escolhe melhor navegador disponível
+- **📋 Teste integrado**: `test_chrome.py` verifica compatibilidade
+
+### 🔧 **Melhorias Técnicas**
+- **Dockerfile atualizado**: Suporte nativo a Chromium e Firefox
+- **install.sh inteligente**: Detecta e instala navegador mais adequado
+- **Código modular**: Função `get_driver()` com fallbacks múltiplos
+- **Configuração automática**: BROWSER definido automaticamente no .env
+
+### 🧪 **Resultados dos Testes**
+```
+Chromium    : ✅ FUNCIONANDO (Recomendado)
+Firefox     : ✅ FUNCIONANDO (Alternativa)  
+Chrome      : ❌ COM PROBLEMAS (Configuração complexa)
+```
+
+### 📊 **Performance**
+- **Login LinkedIn**: ✅ Sucesso com Chromium
+- **Navegação**: ✅ Feed acessível
+- **Interface**: ⚠️ Seletores LinkedIn em atualização
+
+### 🐳 **Status Docker**
+- **IPv4 forwarding**: Identificado como causa raiz dos problemas
+- **Solução implementada**: `sudo sysctl net.ipv4.ip_forward=1`
+- **Status atual**: ⚠️ Limitado em alguns sistemas
+
+### 💡 **Recomendações**
+- **Usar Chromium**: `BROWSER=chromium` no .env
+- **Instalação nativa**: Mais estável que Docker atualmente
+- **Teste regularmente**: Execute `python3 test_chrome.py`
+
+---
+
+## [2.9.1] - 2025-01-26
+
+### 🚨 Problemas Críticos Identificados
+- ❌ **Docker com falha de rede bridge**: Erro "network bridge not found" impedindo build das imagens
+- ❌ **Selenium incompatível com Chrome**: Erro "no chrome binary" mesmo com Chrome instalado
+- ❌ **ChromeDriver com problemas de localização**: Selenium não consegue encontrar o driver
+
+### ✅ Soluções Implementadas
+- ✅ **Criado sistema de instalação nativa**: Script `install.sh` automático
+- ✅ **Script de execução nativa**: `run_native.sh` como alternativa ao Docker
+- ✅ **Detecção automática de dependências**: Verificação e instalação do Chrome/ChromeDriver
+- ✅ **Múltiplos fallbacks para Chrome**: Tentativas com diferentes caminhos e configurações
+- ✅ **Downgrade do Selenium**: Versão 4.15.0 para melhor compatibilidade
+
+### 🔧 Melhorias Técnicas
+- ✅ **WebDriverManager integrado**: Detecção automática do ChromeDriver
+- ✅ **Logs coloridos**: Sistema de logging melhorado no script de instalação
+- ✅ **Verificação de permissões**: Prevenção de execução como root
+- ✅ **Estrutura de pastas automática**: Criação automática de diretórios necessários
+
+### 📝 Documentação
+- ✅ **README.md atualizado**: Instruções claras para instalação nativa
+- ✅ **Status do projeto documentado**: Problemas conhecidos e soluções
+- ✅ **Guia de solução de problemas**: Seção dedicada para troubleshooting
+
+### ⚠️ Status Atual
+- 🟡 **Docker temporariamente desabilitado**: Problemas de rede não resolvidos
+- 🟡 **Selenium com problemas**: Incompatibilidade persistente com Chrome
+- 🟢 **Instalação nativa funcional**: Alternativa estável disponível
+
+### 🔄 Próximos Passos
+- [ ] Investigar problema de rede bridge do Docker
+- [ ] Resolver incompatibilidade Selenium/Chrome
+- [ ] Testar com diferentes versões do Chrome
+- [ ] Implementar detecção automática de ambiente
+
+---
+
+## [2.9.0] - 2025-01-25
+
+### 🐳 DOCKER OTIMIZADO - Correção e Simplificação
+
+**Filosofia da Versão:**
+- **OBJETIVO**: Corrigir configuração Docker e simplificar deployment
+- **FOCO**: Docker funcional com um comando apenas
+- **ESTABILIDADE**: Sistema robusto e fácil de usar
+
+**Correções Docker:**
+- **CORRIGIDO**: `docker-compose.yml` - Removido referência ao `Dockerfile.selenium` inexistente
+- **SIMPLIFICADO**: Configuração para um único serviço Docker
+- **OTIMIZADO**: Uso do `Dockerfile` padrão já existente
+- **MELHORADO**: Script `docker-start.sh` com validações robustas
+- **ADICIONADO**: Suporte para `docker-compose` e `docker compose`
+
+**Melhorias no docker-start.sh:**
+- ✅ **Validação de Docker**: Verifica se Docker está rodando
+- ✅ **Verificação de Docker Compose**: Suporte para ambas as versões
+- ✅ **Validação de credenciais**: Não aceita valores de exemplo
+- ✅ **Mensagens claras**: Links para obter credenciais necessárias
+- ✅ **Estrutura de pastas**: Criação automática de diretórios
+- ✅ **Status completo**: Mostra containers rodando após inicialização
+
+**Atualizações no .env:**
+- **ADICIONADO**: Variáveis opcionais documentadas
+- **MELHORADO**: Comentários explicativos
+- **PADRONIZADO**: Estrutura organizada por seções
+- **ADICIONADO**: POST_TEXT, TELEGRAM_CHAT_ID, DISCORD_WEBHOOK_URL
+
+**Melhorias na Documentação:**
+- **ATUALIZADO**: README.md com instruções step-by-step
+- **ADICIONADO**: Seção detalhada de troubleshooting Docker
+- **MELHORADO**: Exemplos de credenciais com links para obtenção
+- **DOCUMENTADO**: Comandos Docker com emojis e explicações
+- **ADICIONADO**: Seção de resolução de problemas comuns
+
+**Comandos Docker Simplificados:**
+```bash
+# ✅ Iniciar (tudo em um comando)
+./docker-start.sh
+
+# 📊 Monitorar
+docker-compose logs -f
+
+# 🔄 Controlar
+docker-compose stop/restart/down
+```
+
+**Troubleshooting Automático:**
+- **DOCKER**: Verificação se serviço está rodando
+- **COMPOSE**: Detecção automática da versão disponível
+- **CREDENCIAIS**: Validação de todas as variáveis obrigatórias
+- **PERMISSÕES**: Instruções para adicionar usuário ao grupo docker
+- **REBUILD**: Comandos para reconstruir em caso de erro
+
+**Funcionalidades Docker:**
+- ✅ **Container único**: Simplicidade total
+- ✅ **Volumes persistentes**: Dados mantidos entre restarts
+- ✅ **Logs organizados**: Sistema de logging completo
+- ✅ **Debug VNC**: Acesso visual via localhost:7900
+- ✅ **Health checks**: Monitoramento automático
+- ✅ **Restart automático**: Resiliência em falhas
+
+**Sistema de Validação:**
+- 🔍 **Pré-verificações**: Docker, Compose, credenciais
+- ⚠️ **Alertas claros**: Mensagens específicas para cada erro
+- 🔗 **Links úteis**: Onde obter cada credencial necessária
+- 📋 **Checklist**: Validação step-by-step automatizada
+
+**Resultado Final:**
+- **Setup simplificado**: 3 comandos para rodar tudo
+- **Docker estável**: Configuração testada e funcional
+- **Documentação completa**: Todos os casos cobertos
+- **Troubleshooting automático**: Detecção e solução de problemas
+
+---
+
 ## [2.8.0] - 2024-12-21 02:00:00
 
 ### 🐳 SISTEMA DOCKERIZADO - Containerização Completa

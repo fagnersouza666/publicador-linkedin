@@ -26,6 +26,8 @@ from selenium.common.exceptions import (
     WebDriverException,
     InvalidSessionIdException,
 )
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 
 
 # === Configurações de Observabilidade ===
@@ -369,49 +371,63 @@ def get_driver() -> webdriver.Remote:
     """Configuração unificada do navegador para Docker e local"""
     if DOCKER_MODE:
         logger.info("🔧 Inicializando navegador no Docker...")
-        opts = webdriver.ChromeOptions()
 
-        # Se DEBUG_MODE = true, não usa headless
-        if not DEBUG_MODE:
-            opts.add_argument("--headless")
-            logger.info("👻 Modo headless ativado (invisível)")
-        else:
-            logger.info("👁️ Modo visual ativado - você verá o navegador!")
+        if BROWSER == "firefox":
+            from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
-        opts.add_argument("--no-sandbox")
-        opts.add_argument("--disable-dev-shm-usage")
-        opts.add_argument("--disable-gpu")
-        opts.add_argument("--window-size=1920,1080")
-        opts.add_argument("--remote-debugging-port=9222")
+            opts = FirefoxOptions()
+            if not DEBUG_MODE:
+                opts.add_argument("--headless")
+                logger.info("👻 Firefox modo headless ativado")
+            else:
+                logger.info("👁️ Firefox modo visual ativado")
 
-        # Argumentos únicos para evitar conflitos de user-data-dir
-        unique_id = str(uuid.uuid4())[:8]
-        opts.add_argument(f"--user-data-dir=/tmp/chrome-data-{unique_id}")
-        opts.add_argument("--disable-extensions")
-        opts.add_argument("--disable-plugins")
-        opts.add_argument("--disable-images")
-        opts.add_argument("--disable-web-security")
+            opts.add_argument("--no-sandbox")
+            opts.add_argument("--disable-dev-shm-usage")
+            opts.add_argument("--window-size=1920,1080")
 
-        # Melhorar performance
-        opts.add_argument("--disable-background-timer-throttling")
-        opts.add_argument("--disable-backgrounding-occluded-windows")
-        opts.add_argument("--disable-renderer-backgrounding")
+            # Firefox no Docker
+            try:
+                return webdriver.Firefox(options=opts)
+            except Exception as e:
+                logger.error(f"❌ Erro ao inicializar Firefox: {e}")
+                raise
 
-        # Tentar conectar ao Chrome local do Selenium Grid
-        try:
-            return webdriver.Chrome(options=opts)
-        except WebDriverException as e:
-            logger.error(f"❌ Erro ao conectar Chrome: {e}")
-            # Fallback para remote driver se necessário
-            from selenium.webdriver.common.desired_capabilities import (
-                DesiredCapabilities,
-            )
+        else:  # chromium/chrome (padrão no Docker)
+            opts = webdriver.ChromeOptions()
 
-            return webdriver.Remote(
-                command_executor="http://localhost:4444/wd/hub",
-                desired_capabilities=DesiredCapabilities.CHROME,
-                options=opts,
-            )
+            if not DEBUG_MODE:
+                opts.add_argument("--headless")
+                logger.info("👻 Chromium modo headless ativado")
+            else:
+                logger.info("👁️ Chromium modo visual ativado")
+
+            opts.add_argument("--no-sandbox")
+            opts.add_argument("--disable-dev-shm-usage")
+            opts.add_argument("--disable-gpu")
+            opts.add_argument("--window-size=1920,1080")
+            opts.add_argument("--remote-debugging-port=9222")
+
+            # Argumentos únicos para evitar conflitos
+            unique_id = str(uuid.uuid4())[:8]
+            opts.add_argument(f"--user-data-dir=/tmp/chrome-data-{unique_id}")
+            opts.add_argument("--disable-extensions")
+            opts.add_argument("--disable-plugins")
+            opts.add_argument("--disable-images")
+            opts.add_argument("--disable-web-security")
+
+            # Melhorar performance
+            opts.add_argument("--disable-background-timer-throttling")
+            opts.add_argument("--disable-backgrounding-occluded-windows")
+            opts.add_argument("--disable-renderer-backgrounding")
+
+            # Usar Chromium no Docker (disponível no PATH)
+            try:
+                logger.info("🔄 Usando Chromium do Docker...")
+                return webdriver.Chrome(options=opts)
+            except Exception as e:
+                logger.error(f"❌ Erro ao inicializar Chromium: {e}")
+                raise
     else:
         logger.info("🔧 Inicializando navegador localmente...")
 
@@ -429,14 +445,15 @@ def get_driver() -> webdriver.Remote:
             opts.add_argument("--window-size=1920,1080")
             return webdriver.Firefox(options=opts)
 
-        else:  # chromium/chrome
+        elif BROWSER == "chromium":
+            # Usar Chromium local
             opts = webdriver.ChromeOptions()
 
             if not DEBUG_MODE:
                 opts.add_argument("--headless")
-                logger.info("👻 Chrome modo headless ativado")
+                logger.info("👻 Chromium modo headless ativado")
             else:
-                logger.info("👁️ Chrome modo visual ativado")
+                logger.info("👁️ Chromium modo visual ativado")
 
             opts.add_argument("--window-size=1920,1080")
             opts.add_argument("--no-sandbox")
@@ -446,7 +463,71 @@ def get_driver() -> webdriver.Remote:
             unique_id = str(uuid.uuid4())[:8]
             opts.add_argument(f"--user-data-dir=/tmp/chrome-data-{unique_id}")
 
-            return webdriver.Chrome(options=opts)
+            # Tentar Chromium primeiro
+            try:
+                logger.info("🔄 Usando Chromium...")
+                # Chromium geralmente está disponível como chromium-browser
+                for chromium_path in [
+                    "/usr/bin/chromium",
+                    "/usr/bin/chromium-browser",
+                    "/snap/bin/chromium",
+                ]:
+                    if os.path.exists(chromium_path):
+                        opts.binary_location = chromium_path
+                        logger.info(f"✅ Chromium encontrado em: {chromium_path}")
+                        break
+                return webdriver.Chrome(options=opts)
+            except Exception as e:
+                logger.warning(f"⚠️ Chromium falhou: {e}")
+                logger.info("🔄 Tentando Google Chrome como fallback...")
+
+        # Fallback para Google Chrome (código original)
+        opts = webdriver.ChromeOptions()
+
+        if not DEBUG_MODE:
+            opts.add_argument("--headless")
+            logger.info("👻 Chrome modo headless ativado")
+        else:
+            logger.info("👁️ Chrome modo visual ativado")
+
+        opts.add_argument("--window-size=1920,1080")
+        opts.add_argument("--no-sandbox")
+        opts.add_argument("--disable-dev-shm-usage")
+
+        # ID único para evitar conflitos
+        unique_id = str(uuid.uuid4())[:8]
+        opts.add_argument(f"--user-data-dir=/tmp/chrome-data-{unique_id}")
+
+        # Tentar Google Chrome com binário real
+        try:
+            logger.info("🔄 Usando Google Chrome...")
+            # Usar o binário real do Chrome
+            service = Service("/usr/bin/chromedriver")
+            opts.binary_location = (
+                "/opt/google/chrome/chrome"  # Binário real, não o script
+            )
+            return webdriver.Chrome(service=service, options=opts)
+        except Exception as e:
+            logger.warning(f"⚠️ Chrome com binário real falhou: {e}")
+
+            # Fallback com WebDriverManager
+            try:
+                logger.info("🔄 Tentando com WebDriverManager...")
+                from webdriver_manager.chrome import ChromeDriverManager
+
+                service = Service(ChromeDriverManager().install())
+                opts.binary_location = "/opt/google/chrome/chrome"
+                return webdriver.Chrome(service=service, options=opts)
+            except Exception as e2:
+                logger.warning(f"⚠️ WebDriverManager falhou: {e2}")
+
+                # Fallback final - sem especificar binário
+                try:
+                    logger.info("🔄 Tentativa final sem caminho específico...")
+                    return webdriver.Chrome(options=opts)
+                except Exception as e3:
+                    logger.error(f"❌ Todas as tentativas falharam: {e3}")
+                    raise
 
 
 def login(driver: webdriver.Remote, execution_id: str) -> None:

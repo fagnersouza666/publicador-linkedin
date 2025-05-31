@@ -1,34 +1,16 @@
 version: '3.8'
 
 services:
-  selenium:
-    image: selenium/standalone-firefox:4.21.0-20240517
-    container_name: linkedin-selenium
-    ports:
-      - "4444:4444"
-      - "7900:7900" # VNC para debug visual
-    volumes:
-      - /dev/shm:/dev/shm:rw
-      - /var/log/linkedin:/logs:rw
-    environment:
-      - SE_VNC_NO_PASSWORD=1
-      - SE_NODE_MAX_SESSIONS=1
-      - SE_NODE_SESSION_TIMEOUT=300
-    restart: unless-stopped
-    networks:
-      - linkedin-net
-
   linkedin-poster:
     build:
       context: .
-      dockerfile: Dockerfile.selenium
+      dockerfile: Dockerfile
     container_name: linkedin-poster
-    depends_on:
-      - selenium
+    # Usar host networking para contornar problema de bridge
+    network_mode: host
     volumes:
-      - /var/log/linkedin:/logs:rw
       - ./posts:/app/posts:rw
-      - linkedin-cache:/app/.cache
+      - ./logs:/app/logs:rw
     environment:
       # LinkedIn
       - LINKEDIN_EMAIL=${LINKEDIN_EMAIL}
@@ -41,38 +23,17 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_AUTHORIZED_USERS=${TELEGRAM_AUTHORIZED_USERS}
 
-      # Alertas Telegram
-      - TELEGRAM_ALERT_BOT_TOKEN=${TELEGRAM_ALERT_BOT_TOKEN}
-      - TELEGRAM_ALERT_CHAT_ID=${TELEGRAM_ALERT_CHAT_ID}
-
-      # Alertas Discord
-      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
-
-      # Docker mode
+      # Configurações técnicas
+      - BROWSER=${BROWSER:-chrome}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
       - DOCKER_MODE=true
-      - SELENIUM_HUB_URL=http://selenium:4444/wd/hub
+      - DISPLAY=:99
     restart: unless-stopped
-    networks:
-      - linkedin-net
     security_opt:
       - no-new-privileges:true
-    read_only: false
-    tmpfs:
-      - /tmp:noexec,nosuid,size=100m
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
+    shm_size: 2gb
+    # Não usar volumes nomeados para simplicidade
 
 volumes:
   linkedin-cache:
     driver: local
-
-networks:
-  linkedin-net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
